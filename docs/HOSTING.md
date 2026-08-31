@@ -32,24 +32,48 @@ tem relação com o servidor.
 ### 1. VPS — recomendada
 
 Uma máquina Linux comum. É para isso que o `docker compose up -d` do projeto foi feito;
-tudo funciona sem nenhuma alteração de código.
+tudo funciona sem nenhuma alteração de código. Passo a passo em
+[`SERVER_SETUP.md`](SERVER_SETUP.md).
 
-- Custo típico: algo entre US$ 5 e 15 por mês para 4 vCPU / 8 GB.
-- Provedores comuns: Hetzner, DigitalOcean, Vultr, Contabo, Oracle Cloud (tem camada
-  gratuita razoável).
-- Passo a passo pronto em [`SERVER_SETUP.md`](SERVER_SETUP.md).
+**Escolha um datacenter perto de vocês.** Para um grupo no Brasil, um servidor em São
+Paulo dá ~10–30 ms de latência; na Alemanha, ~200 ms. Para texto tanto faz — para voz,
+é a diferença entre conversa natural e conversa atropelada.
 
-**A vantagem decisiva é o tráfego.** VPS normalmente inclui vários TB por mês no preço.
-Plataformas gerenciadas cobram por GB que sai. Com compartilhamento de tela isso deixa
-de ser detalhe:
+Panorama de preços (agosto de 2026 — **confira antes de comprar**, isso muda):
+
+| Provedor | Região BR | 4 vCPU / 8 GB | Observação |
+|---|---|---|---|
+| **Oracle Cloud Free Tier** | São Paulo e Vinhedo | **grátis** (4 vCPU ARM / 24 GB) | Melhor custo-benefício disponível. Ressalvas abaixo. |
+| ServerSP | São Paulo | ~R$ 87/mês | Provedor nacional, cobra em real. |
+| ExpressVPS | São Paulo | ~R$ 115/mês | Provedor nacional. |
+| Vultr | São Paulo | ~US$ 40/mês | Internacional, painel bom. |
+| Hetzner | ❌ sem BR | €20,99 (DE) · ~US$ 73 (EUA) | Era a mais barata, mas **subiu muito em 2026** e não tem região no Brasil. |
+
+#### Sobre o Oracle Cloud Free Tier
+
+Na prática é a melhor opção para 9 amigos no Brasil: 4 vCPU ARM, 24 GB de RAM, região em
+São Paulo/Vinhedo e uma cota de saída generosa — tudo sem custo. Três ressalvas honestas:
+
+1. **É ARM (Ampere), não x86.** Todas as imagens do projeto têm build arm64
+   (node, postgres, redis, caddy), e o Olm é WebAssembly, então funciona. Os módulos
+   nativos (`argon2`, `sharp`) compilam na build — só demora um pouco mais.
+2. **Capacidade ARM gratuita é disputada.** É comum a criação falhar com
+   "out of capacity" e ser preciso tentar de novo em outro horário.
+3. **Instância ociosa pode ser recuperada** em contas exclusivamente gratuitas.
+   Um servidor de chat em uso raramente fica ocioso, mas se preocupar, ativar o modo
+   pago (que continua gratuito dentro da cota) elimina esse risco.
+
+#### O tráfego costuma importar mais que o preço da máquina
+
+VPS normalmente inclui vários TB por mês. Plataformas gerenciadas cobram por GB que sai.
+Com compartilhamento de tela isso deixa de ser detalhe:
 
 > Uma transmissão 1080p60 para 8 amigos gera cerca de **21 GB por hora** de saída
 > (ver [`BANDWIDTH.md`](BANDWIDTH.md)). Três horas por dia dão aproximadamente
 > **2 TB por mês**.
 
-Numa VPS com tráfego incluso, isso custa zero a mais. Cobrado por GB, na ordem de
-grandeza usual dessas plataformas, viraria centenas de dólares por mês. Confira os
-preços atuais antes de decidir — mas a diferença de ordem de grandeza é estável.
+Numa VPS com tráfego incluso isso custa zero a mais. Cobrado por GB, na ordem de grandeza
+usual dessas plataformas, viraria centenas de dólares por mês.
 
 ### 2. Railway / Render / Fly.io — funcionam, com ressalvas
 
@@ -74,9 +98,14 @@ limite do compartilhamento de tela (veja `BANDWIDTH.md` — 1080p60 exige upload
 
 ## Recomendação
 
-Comece com uma **VPS pequena** e a topologia **Tailscale** descrita em
+1. Tente primeiro o **Oracle Cloud Free Tier em São Paulo**. Se conseguir a instância ARM,
+   você tem servidor de sobra, perto, sem pagar nada.
+2. Se não conseguir capacidade, pegue uma **VPS em São Paulo** de qualquer provedor da
+   tabela — para 9 pessoas, 4 vCPU / 8 GB é folgado.
+
+Em qualquer caso, use a topologia **Tailscale** descrita em
 [`SERVER_SETUP.md`](SERVER_SETUP.md): nada exposto na internet, sem domínio para
 configurar, sem certificado para renovar, e o NAT já resolvido para quando a voz entrar.
 
 Se o compartilhamento de tela em alta qualidade for prioridade, olhe o tráfego incluso
-no plano antes de olhar o preço.
+no plano antes de olhar o preço da máquina.
