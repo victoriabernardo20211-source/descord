@@ -12,6 +12,72 @@ dimensionamento do compartilhamento de tela).
 
 ---
 
+## 0. Acessar o servidor
+
+O provedor manda o IP e a senha de root por e-mail ou painel.
+
+**No Windows não precisa instalar nada.** O Windows 10 e 11 já trazem cliente SSH.
+Abra o **Terminal** (ou PowerShell) e conecte:
+
+```powershell
+ssh root@SEU_IP
+```
+
+Na primeira conexão ele pergunta se você confia na máquina — responda `yes`.
+
+> Nunca compartilhe a senha de root nem sua chave privada: nem em chat, nem em print,
+> nem em issue de repositório. Se isso acontecer, troque a senha imediatamente com `passwd`.
+
+### Deixar o acesso seguro (cinco minutos, vale a pena)
+
+Servidor com IP público leva tentativas de login por força bruta desde a primeira hora.
+Chave SSH resolve isso de vez.
+
+**1. Gere uma chave no seu PC** (no Windows, no seu Terminal — não no servidor):
+
+```powershell
+ssh-keygen -t ed25519 -C "meu-pc"
+```
+
+Aceite o caminho padrão e defina uma senha para a chave.
+
+**2. Envie a chave pública para o servidor:**
+
+```powershell
+type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh root@SEU_IP "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+```
+
+**3. Teste em uma janela NOVA**, sem fechar a atual:
+
+```powershell
+ssh root@SEU_IP
+```
+
+Se entrou sem pedir a senha do servidor, a chave está funcionando.
+
+**4. Só então desative o login por senha** (mantendo a sessão antiga aberta, para não
+se trancar do lado de fora):
+
+```bash
+sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo systemctl restart ssh
+```
+
+Confirme abrindo mais uma janela nova antes de encerrar as anteriores.
+
+### Criar um usuário comum (opcional, recomendado)
+
+Trabalhar como root o tempo todo transforma qualquer erro de digitação em estrago:
+
+```bash
+adduser nexus
+usermod -aG sudo nexus
+rsync --archive --chown=nexus:nexus ~/.ssh /home/nexus
+```
+
+A partir daí conecte com `ssh nexus@SEU_IP` e siga o resto do guia normalmente — os
+comandos já usam `sudo`.
+
 ## 1. Sistema
 
 ```bash
