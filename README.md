@@ -148,6 +148,10 @@ backend.**
 Passo a passo completo (VPS Ubuntu, Docker, domínio, firewall, admin, backups):
 [`docs/SERVER_SETUP.md`](docs/SERVER_SETUP.md).
 
+**Onde hospedar:** o backend precisa de processo contínuo (WebSocket, worker de
+expiração, reconciliação de 60 s), então **Vercel e afins não servem** — comparação
+das opções em [`docs/HOSTING.md`](docs/HOSTING.md).
+
 Resumo:
 
 ```bash
@@ -222,6 +226,7 @@ com todas as letras em [`docs/E2EE.md`](docs/E2EE.md).
 | [`docs/E2EE.md`](docs/E2EE.md) | criptografia ponta a ponta: protocolo, chaves, metadados |
 | [`docs/SERVER_SETUP.md`](docs/SERVER_SETUP.md) | instalação na VPS, passo a passo |
 | [`docs/WINDOWS_CLIENT.md`](docs/WINDOWS_CLIENT.md) | build, instalador, logs do cliente |
+| [`docs/HOSTING.md`](docs/HOSTING.md) | onde hospedar: por que Vercel não serve, alternativas |
 | [`docs/BANDWIDTH.md`](docs/BANDWIDTH.md) | estimativas de banda, mesh × SFU |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | problemas comuns e como resolver |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | fases seguintes, incluindo a spec do "zumbido" |
