@@ -1,0 +1,86 @@
+name: nexus
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nexus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-nexus}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # Sem "ports": o banco NUNCA é exposto na internet, só na rede interna.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-nexus} -d ${POSTGRES_DB:-nexus}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:?defina REDIS_PASSWORD no .env}']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/server.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nexus}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nexus}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?defina JWT_REFRESH_SECRET no .env}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:4000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      STORAGE_PATH: /data/storage
+      MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE:-104857600}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-}
+      REGISTRATION_INVITE_CODE: ${REGISTRATION_INVITE_CODE:-}
+      LIVEKIT_URL: ${LIVEKIT_URL:-}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+    volumes:
+      - storage-data:/data/storage
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:4000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [server]
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      NEXUS_DOMAIN: ${NEXUS_DOMAIN:-localhost}
+      LIVEKIT_DOMAIN: ${LIVEKIT_DOMAIN:-livekit.localhost}
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-data:
+  redis-data:
+  storage-data:
+  caddy-data:
+  caddy-config:

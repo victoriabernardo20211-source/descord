@@ -1,0 +1,531 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Usuários e sessões ───────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  displayName  String
+  passwordHash String
+  avatarUrl    String?
+  bannerUrl    String?
+  bio          String?
+  isGlobalAdmin Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions            Session[]
+  settings            UserSettings?
+  ownedServers        Server[]           @relation("ServerOwner")
+  memberships         ServerMember[]
+  messages            Message[]
+  directMessages      DirectMessage[]
+  reactions           MessageReaction[]
+  conversations       DirectConversationParticipant[]
+  sentRequests        FriendRequest[]    @relation("FriendRequestFrom")
+  receivedRequests    FriendRequest[]    @relation("FriendRequestTo")
+  friendshipsA        Friendship[]       @relation("FriendshipA")
+  friendshipsB        Friendship[]       @relation("FriendshipB")
+  blocksMade          Block[]            @relation("Blocker")
+  blocksReceived      Block[]            @relation("Blocked")
+  notifications       Notification[]
+  reads               ChannelRead[]
+  invitesCreated      ServerInvite[]
+  auditEntries        AuditLog[]         @relation("AuditActor")
+  bansIssued          ServerBan[]        @relation("BanIssuer")
+  bansReceived        ServerBan[]        @relation("BanTarget")
+  pins                PinnedMessage[]
+  voiceSessions       VoiceSession[]
+  callParticipations  CallParticipant[]
+  presence            Presence?
+}
+
+/// Uma sessão = um dispositivo logado. O refresh token é guardado apenas como hash.
+model Session {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String   @unique
+  deviceName       String?
+  ipAddress        String?
+  userAgent        String?
+  createdAt        DateTime @default(now())
+  lastUsedAt       DateTime @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model UserSettings {
+  id                   String  @id @default(cuid())
+  userId               String  @unique
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme                String  @default("dark")
+  locale               String  @default("pt-BR")
+  inputMode            String  @default("VOICE_ACTIVITY") // VOICE_ACTIVITY | PUSH_TO_TALK
+  pushToTalkKey        String?
+  inputDeviceId        String?
+  outputDeviceId       String?
+  inputVolume          Int     @default(100)
+  outputVolume         Int     @default(100)
+  noiseSuppression     Boolean @default(true)
+  echoCancellation     Boolean @default(true)
+  autoGainControl      Boolean @default(true)
+  minimizeToTray       Boolean @default(true)
+  launchOnStartup      Boolean @default(false)
+  notificationSounds   Boolean @default(true)
+  shareActivity        Boolean @default(false)
+}
+
+/// Presença durável (último estado conhecido). O estado ao vivo fica no Redis.
+model Presence {
+  userId       String   @id
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status       String   @default("OFFLINE")
+  customStatus String?
+  customEmoji  String?
+  clearAt      DateTime?
+  updatedAt    DateTime @updatedAt
+}
+
+// ─────────────────────────── Amizades ───────────────────────────
+
+/// Par ordenado (userAId < userBId) para garantir unicidade da amizade.
+model Friendship {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  userA     User     @relation("FriendshipA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB     User     @relation("FriendshipB", fields: [userBId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userAId, userBId])
+  @@index([userBId])
+}
+
+model FriendRequest {
+  id         String   @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  fromUser   User     @relation("FriendRequestFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User     @relation("FriendRequestTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId])
+}
+
+model Block {
+  id          String   @id @default(cuid())
+  blockerId   String
+  blockedId   String
+  blocker     User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked     User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+// ─────────────────────────── Servidores ───────────────────────────
+
+model Server {
+  id        String   @id @default(cuid())
+  name      String
+  iconUrl   String?
+  ownerId   String
+  owner     User     @relation("ServerOwner", fields: [ownerId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members    ServerMember[]
+  roles      Role[]
+  categories Category[]
+  channels   Channel[]
+  invites    ServerInvite[]
+  bans       ServerBan[]
+  auditLogs  AuditLog[]
+
+  @@index([ownerId])
+}
+
+model ServerMember {
+  id       String   @id @default(cuid())
+  serverId String
+  userId   String
+  server   Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nickname String?
+  joinedAt DateTime @default(now())
+
+  roles MemberRole[]
+
+  @@unique([serverId, userId])
+  @@index([userId])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  serverId    String
+  server      Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  name        String
+  color       String   @default("#8b8fa3")
+  /// Bitfield de permissões (ver packages/shared/src/permissions.ts).
+  permissions BigInt   @default(0)
+  /// Maior = mais alto na hierarquia. @everyone é sempre 0.
+  position    Int      @default(0)
+  isEveryone  Boolean  @default(false)
+  mentionable Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  members   MemberRole[]
+  overrides ChannelPermission[]
+
+  @@index([serverId])
+}
+
+model MemberRole {
+  memberId String
+  roleId   String
+  member   ServerMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  role     Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([memberId, roleId])
+  @@index([roleId])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  serverId  String
+  server    Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  name      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  channels Channel[]
+
+  @@index([serverId])
+}
+
+enum ChannelType {
+  TEXT
+  VOICE
+}
+
+model Channel {
+  id         String      @id @default(cuid())
+  serverId   String
+  server     Server      @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  categoryId String?
+  /// Canal solto (sem categoria) continua válido se a categoria for apagada.
+  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name       String
+  type       ChannelType @default(TEXT)
+  topic      String?
+  position   Int         @default(0)
+  createdAt  DateTime    @default(now())
+
+  messages      Message[]
+  overrides     ChannelPermission[]
+  reads         ChannelRead[]
+  pins          PinnedMessage[]
+  voiceSessions VoiceSession[]
+
+  @@index([serverId])
+  @@index([categoryId])
+}
+
+/// Override de permissão por canal, para um cargo OU para um membro.
+model ChannelPermission {
+  id        String  @id @default(cuid())
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  roleId    String?
+  role      Role?   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  userId    String?
+  allow     BigInt  @default(0)
+  deny      BigInt  @default(0)
+
+  @@unique([channelId, roleId])
+  @@unique([channelId, userId])
+  @@index([channelId])
+}
+
+model ServerInvite {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  serverId    String
+  server      Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  /// null = nunca expira
+  expiresAt   DateTime?
+  /// 0 = ilimitado
+  maxUses     Int      @default(0)
+  uses        Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([serverId])
+}
+
+model ServerBan {
+  id         String   @id @default(cuid())
+  serverId   String
+  server     Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation("BanTarget", fields: [userId], references: [id], onDelete: Cascade)
+  bannedById String
+  bannedBy   User     @relation("BanIssuer", fields: [bannedById], references: [id])
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@unique([serverId, userId])
+}
+
+// ─────────────────────────── Mensagens de servidor ───────────────────────────
+
+model Message {
+  id              String   @id @default(cuid())
+  channelId       String
+  channel         Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId        String
+  author          User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content         String
+  createdAt       DateTime @default(now())
+  editedAt        DateTime?
+  replyToId       String?
+  replyTo         Message? @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies         Message[] @relation("MessageReply")
+  mentionsEveryone Boolean @default(false)
+  mentionedUserIds String[] @default([])
+  /// Idempotência de envio (retry não duplica).
+  clientMessageId String?
+
+  attachments MessageAttachment[]
+  reactions   MessageReaction[]
+  pin         PinnedMessage?
+
+  @@unique([channelId, clientMessageId])
+  @@index([channelId, createdAt])
+  @@index([authorId])
+}
+
+model MessageAttachment {
+  id           String   @id @default(cuid())
+  messageId    String
+  message      Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  storageKey   String
+  thumbnailKey String?
+  fileName     String
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  createdAt    DateTime @default(now())
+
+  @@index([messageId])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model PinnedMessage {
+  id         String   @id @default(cuid())
+  channelId  String
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  messageId  String   @unique
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  pinnedById String
+  pinnedBy   User     @relation(fields: [pinnedById], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([channelId])
+}
+
+model ChannelRead {
+  id                String   @id @default(cuid())
+  channelId         String
+  channel           Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessageId String?
+  lastReadAt        DateTime @default(now())
+  mentionCount      Int      @default(0)
+
+  @@unique([channelId, userId])
+  @@index([userId])
+}
+
+// ─────────────────── Mensagens privadas (expiram em 8h) ───────────────────
+
+model DirectConversation {
+  id        String   @id @default(cuid())
+  /// true = grupo privado (3+ pessoas)
+  isGroup   Boolean  @default(false)
+  name      String?
+  iconUrl   String?
+  ownerId   String?
+  createdAt DateTime @default(now())
+
+  participants DirectConversationParticipant[]
+  messages     DirectMessage[]
+  calls        Call[]
+}
+
+model DirectConversationParticipant {
+  id             String             @id @default(cuid())
+  conversationId String
+  conversation   DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt       DateTime           @default(now())
+  lastReadAt     DateTime           @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+/// REGRA CENTRAL DO PRODUTO: toda mensagem privada tem expiresAt = createdAt + 8h.
+/// expiresAt é definido apenas pelo servidor e nunca é estendido, nem por admin.
+/// Ver DirectMessagesService e ExpirationService.
+model DirectMessage {
+  id              String             @id @default(cuid())
+  conversationId  String
+  conversation    DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorId        String
+  author          User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content         String
+  createdAt       DateTime           @default(now())
+  editedAt        DateTime?
+  /// Momento exato (UTC) da remoção permanente.
+  expiresAt       DateTime
+  replyToId       String?
+  mentionedUserIds String[]          @default([])
+  mentionsEveryone Boolean           @default(false)
+  clientMessageId String?
+
+  attachments DirectMessageAttachment[]
+
+  @@unique([conversationId, clientMessageId])
+  @@index([conversationId, createdAt])
+  /// Índice dedicado: a reconciliação varre por expiresAt a cada minuto.
+  @@index([expiresAt])
+}
+
+model DirectMessageAttachment {
+  id           String        @id @default(cuid())
+  messageId    String
+  message      DirectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  storageKey   String
+  thumbnailKey String?
+  fileName     String
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  createdAt    DateTime      @default(now())
+
+  @@index([messageId])
+}
+
+// ─────────────────────────── Voz e chamadas ───────────────────────────
+
+model VoiceSession {
+  id        String   @id @default(cuid())
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+  leftAt    DateTime?
+
+  @@index([channelId])
+  @@index([userId])
+}
+
+enum CallStatus {
+  RINGING
+  CONNECTED
+  ENDED
+  MISSED
+  DECLINED
+}
+
+model Call {
+  id             String             @id @default(cuid())
+  conversationId String
+  conversation   DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  startedById    String
+  status         CallStatus         @default(RINGING)
+  startedAt      DateTime           @default(now())
+  endedAt        DateTime?
+
+  participants CallParticipant[]
+
+  @@index([conversationId])
+}
+
+model CallParticipant {
+  id       String    @id @default(cuid())
+  callId   String
+  call     Call      @relation(fields: [callId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt DateTime?
+  leftAt   DateTime?
+
+  @@unique([callId, userId])
+}
+
+// ─────────────────────────── Notificações e auditoria ───────────────────────────
+
+model Notification {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           String
+  serverId       String?
+  channelId      String?
+  conversationId String?
+  messageId      String?
+  actorId        String?
+  preview        String?
+  readAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  serverId  String
+  server    Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  actorId   String
+  actor     User     @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+  action    String
+  targetId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([serverId, createdAt])
+}
