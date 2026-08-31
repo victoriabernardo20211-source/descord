@@ -76,9 +76,11 @@ cache local também expira e é purgado no start e em `dm.expired`.
 ## 6. Fases
 
 - **Fase 1** — monorepo, auth, users, amigos, servidores/categorias/canais, chat, WS, DMs + expiração 8h, uploads, permissões, notificações básicas, shell do desktop.
-- **Fase 2** — canais de voz, LiveKit, mic, mute/deafen, PTT, volume por usuário, chamadas privadas.
+- **Fase 2** — canais de voz, LiveKit, mic, mute/deafen, PTT, volume por usuário, chamadas privadas,
+  chamar atenção / vibrar tela ("zumbido", spec em `docs/ROADMAP.md`).
 - **Fase 3** — screen share (monitor/janela/app), resolução/FPS, áudio da tela, múltiplos streams, fullscreen/popout.
 - **Fase 4** — busca, pins, roles avançadas, status/atividade, tray, atalhos, autostart, polish de UI.
 - **Fase 5** — instalador Windows, deploy, backups, auto-update, testes completos, hardening.
 
 Cada fase só avança com `lint`, `typecheck`, `test` e `build` verdes.
+O detalhamento de cada fase fica em [`docs/ROADMAP.md`](docs/ROADMAP.md).

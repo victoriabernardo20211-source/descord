@@ -98,7 +98,14 @@ dig +short chat.seudominio.com
 
 ```bash
 cd /opt/nexus
-docker compose -f infrastructure/docker/docker-compose.yml up -d
+./scripts/preflight.sh    # confere segredos, NODE_ENV, DNS e permissões do .env
+./scripts/deploy.sh       # backup (se já houver dados), build, up -d, espera o health check
+```
+
+O `preflight.sh` falha com uma lista do que está errado em vez de deixar o container subir e
+quebrar depois. Para acompanhar os logs:
+
+```bash
 docker compose -f infrastructure/docker/docker-compose.yml logs -f
 ```
 
@@ -189,13 +196,12 @@ servidor aceitar tráfego.
 ```bash
 cd /opt/nexus
 git pull
-docker compose -f infrastructure/docker/docker-compose.yml build server
-docker compose -f infrastructure/docker/docker-compose.yml up -d
-docker compose -f infrastructure/docker/docker-compose.yml logs -f server
+./scripts/deploy.sh
 ```
 
-As migrations rodam sozinhas no entrypoint (`prisma migrate deploy`). Faça um backup antes de
-atualizar.
+O `deploy.sh` faz backup antes de reconstruir, sobe os serviços e só devolve o controle quando
+o health check fica verde (ou mostra os logs se falhar). As migrations rodam sozinhas no
+entrypoint (`prisma migrate deploy`).
 
 ## 11. Operação do dia a dia
 

@@ -17,7 +17,7 @@ desativar, estender ou preservar. Ver [expiração de DMs](#expiração-de-dms-e
 | Fase | Conteúdo | Situação |
 |---|---|---|
 | **1** | Monorepo, auth, amigos, servidores, categorias, canais, chat, WebSocket, DMs com expiração de 8h, uploads, permissões, notificações | **Implementada** |
-| 2 | Canais de voz, LiveKit, microfone, mute/deafen, PTT, volume por usuário, chamadas privadas | Planejada |
+| 2 | Canais de voz, LiveKit, microfone, mute/deafen, PTT, volume por usuário, chamadas privadas, chamar atenção/vibrar tela | Planejada |
 | 3 | Compartilhamento de tela, resolução/FPS, áudio da tela, múltiplos streams | Planejada |
 | 4 | Busca avançada, pins na UI, roles na UI, status/atividade, tray, atalhos, autostart | Parcial (backend pronto) |
 | 5 | Instalador Windows, deploy, backups, auto-update, testes completos | Parcial (instalador e scripts prontos) |
@@ -147,8 +147,8 @@ Resumo:
 
 ```bash
 cp apps/server/.env.example .env    # preencha os segredos e o domínio
-docker compose -f infrastructure/docker/docker-compose.yml up -d
-docker compose -f infrastructure/docker/docker-compose.yml logs -f
+./scripts/preflight.sh              # confere o .env, DNS e permissões antes de subir
+./scripts/deploy.sh                 # backup, build, up -d e espera o health check
 ```
 
 Duas topologias suportadas, ambas documentadas:
@@ -216,3 +216,4 @@ ponta-a-ponta** — está descrito honestamente em [`docs/SECURITY.md`](docs/SEC
 | [`docs/WINDOWS_CLIENT.md`](docs/WINDOWS_CLIENT.md) | build, instalador, logs do cliente |
 | [`docs/BANDWIDTH.md`](docs/BANDWIDTH.md) | estimativas de banda, mesh × SFU |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | problemas comuns e como resolver |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | fases seguintes, incluindo a spec do "zumbido" |
