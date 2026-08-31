@@ -16,9 +16,12 @@
     "release:windows": "pnpm --filter @nexus/desktop release:windows"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^9.39.5",
+    "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",
-    "prettier": "^3.4.2"
+    "typescript-eslint": "^8.69.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

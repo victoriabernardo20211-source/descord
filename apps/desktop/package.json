@@ -7,7 +7,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo \"no lint\"",
+    "lint": "eslint src",
     "test": "vitest run --passWithNoTests",
     "preview": "electron-vite preview",
     "release:windows": "electron-vite build && electron-builder --win --publish never"

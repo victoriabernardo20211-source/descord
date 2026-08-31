@@ -1,0 +1,146 @@
+# Solução de problemas
+
+## "Não foi possível conectar ao servidor"
+
+O app mostra essa tela quando `/api/health` não responde.
+
+1. O endereço está certo? Deve incluir `https://` e **não** terminar em barra.
+2. O servidor está no ar?
+   ```bash
+   curl -v https://SEU-DOMINIO/api/health
+   ```
+3. Se o `curl` funciona na VPS mas não no PC: DNS ou firewall.
+   ```bash
+   dig +short SEU-DOMINIO      # aponta para o IP certo?
+   sudo ufw status             # 80 e 443 liberados?
+   ```
+4. Usando Tailscale? Confirme que o computador está conectado à tailnet: `tailscale status`.
+
+## Certificado inválido / erro de HTTPS
+
+O Caddy só consegue emitir o certificado se o DNS já apontar para a VPS **e** a porta 80
+estiver acessível de fora.
+
+```bash
+docker compose -f infrastructure/docker/docker-compose.yml logs caddy | tail -50
+```
+
+Erros de ACME aparecem aí. Causas comuns: DNS ainda propagando, porta 80 bloqueada, ou limite
+de emissões do Let's Encrypt (5 por semana para o mesmo domínio — espere ou use um subdomínio
+diferente enquanto testa).
+
+## WebSocket desconectando toda hora
+
+- A barra "Reconectando…" aparecendo de vez em quando é normal em rede instável; o backoff
+  reconecta sozinho.
+- Se **nunca** conecta, verifique se o proxy faz o upgrade. O `Caddyfile` do projeto já faz.
+  Atrás de outro proxy (Cloudflare, nginx), confirme que WebSocket está habilitado.
+- Sessão revogada também derruba: a conexão cai e o app volta para o login. Esperado.
+
+## Docker não inicia
+
+```bash
+sudo systemctl status docker
+sudo systemctl start docker
+docker compose -f infrastructure/docker/docker-compose.yml ps
+```
+
+Container reiniciando em loop:
+
+```bash
+docker compose -f infrastructure/docker/docker-compose.yml logs --tail 100 server
+```
+
+Quase sempre é `.env` incompleto. O backend valida a configuração na inicialização e diz
+exatamente qual variável está faltando ou inválida.
+
+## PostgreSQL indisponível
+
+```bash
+docker compose -f infrastructure/docker/docker-compose.yml ps postgres
+docker compose -f infrastructure/docker/docker-compose.yml logs postgres | tail -30
+```
+
+- `POSTGRES_PASSWORD` vazio → o compose se recusa a subir (proposital).
+- Disco cheio: `df -h`.
+- Migration falhando: o entrypoint mostra o erro do `prisma migrate deploy`. Restaure o backup
+  antes de tentar consertar o schema na mão.
+
+## Redis indisponível
+
+```bash
+docker compose -f infrastructure/docker/docker-compose.yml logs redis | tail -30
+```
+
+Com o Redis fora do ar, **as mensagens continuam funcionando** (Postgres é a fonte da verdade),
+mas presença, digitação e a fila de expiração param. Quando ele volta, a reconciliação de 60 s
+recupera a expiração automaticamente — nenhuma DM deixa de ser apagada por causa disso.
+
+## `GET /api/health` responde "degraded"
+
+O campo `services` diz qual componente está fora:
+
+```bash
+curl -s https://SEU-DOMINIO/api/health | jq
+```
+
+## Mensagem privada não sumiu no horário
+
+1. Ela **já está inacessível** pela API assim que `expiresAt` passa, mesmo antes de a linha ser
+   apagada. Se ainda aparece na tela, é cache do cliente: reabra a conversa.
+2. Veja o job:
+   ```bash
+   docker compose logs server | grep -i "removida permanentemente"
+   ```
+3. A reconciliação roda a cada 60 s. Uma diferença de até um minuto entre o contador e o
+   sumiço físico é o comportamento esperado.
+4. Se nem depois de minutos: confira se o Redis está de pé e se há erro de storage nos logs.
+
+## Upload falhando
+
+- "Arquivo maior que o limite" → aumente `MAX_UPLOAD_SIZE` no `.env` e reinicie o servidor.
+- "Esse tipo de arquivo não é permitido" → o tipo é detectado pelo **conteúdo**, não pela
+  extensão. Executáveis são bloqueados de propósito.
+- Erro 500 no upload → provavelmente disco cheio na VPS: `df -h`.
+
+## Windows Firewall / SmartScreen
+
+- SmartScreen avisando na instalação é esperado (o app não é assinado): **Mais informações →
+  Executar assim mesmo**.
+- Se o Windows perguntar sobre acesso à rede, autorize em **redes privadas**.
+
+---
+
+## Fase 2/3 — voz e tela (ainda não implementadas)
+
+Guardado aqui para quando essa camada entrar.
+
+### Microfone não aparece
+
+Windows: Configurações → Privacidade → Microfone → permitir para aplicativos da área de
+trabalho. Depois reinicie o Nexus. Em Configurações → Voz e Vídeo o app lista os dispositivos
+e permite testar a captura.
+
+### Stream aparece preto
+
+Costuma ser aceleração de hardware brigando com a captura de janela. Tente compartilhar o
+**monitor inteiro** em vez da janela, ou rode o jogo em "janela sem bordas" em vez de tela
+cheia exclusiva.
+
+### Sem áudio no compartilhamento
+
+A captura de áudio de aplicativo tem limitações no Windows. O caminho mais confiável é
+compartilhar a tela **com áudio do sistema**; áudio por aplicativo específico é menos estável.
+O microfone é uma track independente e continua funcionando de qualquer forma.
+
+### TURN falhando / não conecta a chamada
+
+Sem TURN, quem está atrás de NAT simétrico não conecta.
+
+```bash
+sudo ufw allow 7881/tcp
+sudo ufw allow 50000:60000/udp
+docker compose logs livekit | grep -i turn
+```
+
+Se todos usam Tailscale, o problema praticamente desaparece: a tailnet já resolve NAT.

@@ -12,9 +12,15 @@ import { EventsService, room } from '../realtime/events.service';
 import { PendingUploadService } from '../files/pending-upload.service';
 import { ExpirationService } from './expiration.service';
 
-type DmWithRelations = Awaited<
-  ReturnType<PrismaService['directMessage']['findFirstOrThrow']>
->;
+interface AttachmentRow {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  width: number | null;
+  height: number | null;
+  thumbnailKey: string | null;
+}
 
 /**
  * Mensagens privadas.
@@ -324,7 +330,7 @@ export class DirectMessagesService {
       mentionedUserIds: message.mentionedUserIds,
       reactions: [],
       // O download exige autorização — nunca é um caminho público no disco.
-      attachments: (message.attachments ?? []).map((a: DmWithRelations & any) => ({
+      attachments: ((message.attachments ?? []) as AttachmentRow[]).map((a) => ({
         id: a.id,
         fileName: a.fileName,
         mimeType: a.mimeType,

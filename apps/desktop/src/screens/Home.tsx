@@ -381,7 +381,6 @@ function FriendsView(): JSX.Element {
     if (tab === 'online') return friends.friends.filter((f) => statusOf(f.id) !== 'OFFLINE');
     if (tab === 'all') return friends.friends;
     return [];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, friends, presences]);
 
   return (

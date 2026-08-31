@@ -9,7 +9,7 @@
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
-    "lint": "echo \"no lint\""
+    "lint": "eslint src"
   },
   "dependencies": { "zod": "^3.24.1" },
   "devDependencies": { "typescript": "^5.7.2", "vitest": "^2.1.8" }

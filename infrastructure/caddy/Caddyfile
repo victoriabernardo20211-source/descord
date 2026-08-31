@@ -1,0 +1,27 @@
+# HTTPS automático via Let's Encrypt. Caddy cuida do certificado e da renovação.
+{
+	email {$ACME_EMAIL:admin@example.com}
+}
+
+{$NEXUS_DOMAIN} {
+	encode zstd gzip
+
+	# WebSocket e REST saem pelo mesmo host; o Caddy faz o upgrade sozinho.
+	reverse_proxy server:4000 {
+		header_up X-Real-IP {remote_host}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+}
+
+# Fase 2: sinalização do LiveKit. A mídia em si trafega por UDP, direto na porta
+# 7881/7882 do container do LiveKit — não passa por este proxy.
+# {$LIVEKIT_DOMAIN} {
+# 	reverse_proxy livekit:7880
+# }
