@@ -1,6 +1,6 @@
 node_modules/
 dist/
-build/
+/build/
 out/
 release/
 .turbo/
@@ -10,8 +10,13 @@ logs/
 .env
 .env.*
 !.env.example
-uploads/
-storage/
+# ATENÇÃO: padrões sem barra inicial casam com QUALQUER diretório de mesmo nome,
+# em qualquer profundidade. Um `storage/` solto engolia apps/server/src/storage/,
+# que é código-fonte. Por isso os diretórios de runtime são ancorados na raiz.
+/uploads/
+/storage/
+/apps/server/storage/
+/apps/server/storage-test/
 *.dump
 *.sql.gz
 backups/
