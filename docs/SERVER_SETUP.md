@@ -1,7 +1,11 @@
 # Instalação do servidor
 
-Passo a passo para uma VPS **Ubuntu 24.04 LTS**. Os comandos podem ser copiados e colados
-na ordem. Nenhuma etapa foi omitida.
+Passo a passo para uma VPS **Ubuntu LTS** (24.04 ou 26.04). Os comandos podem ser copiados
+e colados na ordem. Nenhuma etapa foi omitida.
+
+**Ao contratar a VPS:** escolha Ubuntu e **nenhum painel de controle** (cPanel, CloudPanel,
+Plesk) nem aplicativo pré-instalado. Todos disputam as portas 80 e 443 com o Caddy do nosso
+Compose. Um IPv4 basta — não precisa de IP adicional.
 
 Recomendado: 4 vCPU, 8 GB RAM, boa saída de rede (ver [`BANDWIDTH.md`](BANDWIDTH.md) para o
 dimensionamento do compartilhamento de tela).
@@ -23,6 +27,16 @@ curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker "$USER"
 newgrp docker                          # ou saia e entre de novo
 docker --version && docker compose version
+```
+
+Em uma versão do Ubuntu lançada há pouco tempo, o repositório oficial do Docker pode ainda
+não ter o canal correspondente e o script acima reclamar de distribuição não suportada.
+Nesse caso, o pacote do próprio Ubuntu resolve e serve perfeitamente:
+
+```bash
+sudo apt install -y docker.io docker-compose-v2
+sudo systemctl enable --now docker
+docker compose version
 ```
 
 ## 3. Firewall
