@@ -5,6 +5,7 @@ import {
   TEST_DM_TTL_MS,
   authed,
   createTestApp,
+  envelopeFor,
   registerUser,
   resetDatabase,
   wait,
@@ -48,7 +49,8 @@ describe('expiração de mensagens privadas (integração)', () => {
     const res = await fetch(`${ctx.baseUrl}/api/dm/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: authed(user),
-      body: JSON.stringify({ content }),
+      // O que trafega é sempre um envelope; o servidor nunca recebe texto puro.
+      body: JSON.stringify({ encryption: envelopeFor(user, content) }),
     });
     if (!res.ok) throw new Error(await res.text());
     return (await res.json()) as { id: string; expiresAt: string };
@@ -123,7 +125,10 @@ describe('expiração de mensagens privadas (integração)', () => {
       {
         method: 'POST',
         headers: authed(ana),
-        body: JSON.stringify({ content: 'olha isso', attachmentIds: [upload.id] }),
+        body: JSON.stringify({
+          encryption: envelopeFor(ana, 'olha isso'),
+          attachmentIds: [upload.id],
+        }),
       },
     );
     const message = (await sendRes.json()) as { id: string; attachments: { id: string }[] };
@@ -144,7 +149,8 @@ describe('expiração de mensagens privadas (integração)', () => {
       data: {
         conversationId,
         authorId: ana.id,
-        content: 'escrita antes do backend cair',
+        content: 'ciphertext-antes-do-backend-cair',
+        algorithm: 'm.megolm.v1.aes-sha2',
         createdAt: past,
         expiresAt: new Date(past.getTime() + 1000),
       },
@@ -161,7 +167,8 @@ describe('expiração de mensagens privadas (integração)', () => {
       data: {
         conversationId,
         authorId: ana.id,
-        content: 'já venceu, mas ainda está na tabela',
+        content: 'ciphertext-ja-vencido',
+        algorithm: 'm.megolm.v1.aes-sha2',
         createdAt: past,
         expiresAt: new Date(past.getTime() + 1000),
       },
@@ -191,7 +198,8 @@ describe('expiração de mensagens privadas (integração)', () => {
       data: {
         conversationId,
         authorId: ana.id,
-        content: 'veio de um backup de ontem',
+        content: 'ciphertext-de-backup-antigo',
+        algorithm: 'm.megolm.v1.aes-sha2',
         createdAt: past,
         expiresAt: new Date(past.getTime() + TEST_DM_TTL_MS),
       },
@@ -211,7 +219,7 @@ describe('expiração de mensagens privadas (integração)', () => {
     await fetch(`${ctx.baseUrl}/api/dm/messages/${message.id}`, {
       method: 'PATCH',
       headers: authed(ana),
-      body: JSON.stringify({ content: 'texto editado' }),
+      body: JSON.stringify({ encryption: envelopeFor(ana, 'texto editado') }),
     });
 
     const after = await ctx.prisma.directMessage.findUniqueOrThrow({ where: { id: message.id } });

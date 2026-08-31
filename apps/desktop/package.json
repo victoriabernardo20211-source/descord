@@ -13,6 +13,7 @@
     "release:windows": "electron-vite build && electron-builder --win --publish never"
   },
   "dependencies": {
+    "@matrix-org/olm": "^3.2.15",
     "electron-updater": "^6.3.9"
   },
   "devDependencies": {

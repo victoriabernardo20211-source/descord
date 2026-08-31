@@ -6,6 +6,9 @@ declare global {
   }
 }
 
+export const E2EE_UNAVAILABLE =
+  'A criptografia ponta a ponta só funciona no aplicativo instalado.';
+
 /**
  * Fallback para rodar o renderer no navegador durante o desenvolvimento,
  * quando a ponte do Electron não existe.
@@ -40,6 +43,26 @@ const fallback: NexusBridge = {
     return false;
   },
   setBadge: async () => false,
+
+  /**
+   * Sem processo principal do Electron não há como guardar chave privada com
+   * segurança. Em vez de cair para texto puro sem avisar — o pior erro possível
+   * num app que promete E2EE — cada operação falha de forma explícita, e a UI
+   * bloqueia o envio de mensagens privadas.
+   */
+  e2ee: {
+    init: () => Promise.reject(new Error(E2EE_UNAVAILABLE)),
+    generateOneTimeKeys: () => Promise.reject(new Error(E2EE_UNAVAILABLE)),
+    missingSessions: () => Promise.reject(new Error(E2EE_UNAVAILABLE)),
+    createSessions: () => Promise.reject(new Error(E2EE_UNAVAILABLE)),
+    shareSession: () => Promise.reject(new Error(E2EE_UNAVAILABLE)),
+    receiveToDevice: () => Promise.reject(new Error(E2EE_UNAVAILABLE)),
+    encrypt: () => Promise.reject(new Error(E2EE_UNAVAILABLE)),
+    decrypt: async () => ({ error: 'E2EE_UNAVAILABLE' }),
+    fingerprint: () => Promise.reject(new Error(E2EE_UNAVAILABLE)),
+    rotateSession: () => Promise.reject(new Error(E2EE_UNAVAILABLE)),
+    reset: () => Promise.reject(new Error(E2EE_UNAVAILABLE)),
+  },
 };
 
 export const bridge: NexusBridge = window.nexus ?? fallback;

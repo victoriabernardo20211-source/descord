@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
 import { execSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { AppModule } from '../../src/app.module';
 import { installBigIntJson } from '../../src/common/serialize';
 
@@ -59,6 +60,7 @@ export async function resetDatabase(prisma: PrismaClient): Promise<void> {
     TRUNCATE TABLE "DirectMessageAttachment", "DirectMessage",
       "DirectConversationParticipant", "DirectConversation",
       "MessageAttachment", "MessageReaction", "PinnedMessage", "Message",
+      "ToDeviceMessage", "OneTimeKey", "Device",
       "ChannelRead", "ChannelPermission", "Channel", "Category",
       "MemberRole", "Role", "ServerMember", "ServerInvite", "ServerBan",
       "AuditLog", "Server", "Notification", "Friendship", "FriendRequest",
@@ -71,6 +73,8 @@ export interface TestUser {
   id: string;
   username: string;
   accessToken: string;
+  deviceId: string;
+  identityKey: string;
 }
 
 export async function registerUser(baseUrl: string, username: string): Promise<TestUser> {
@@ -86,7 +90,44 @@ export async function registerUser(baseUrl: string, username: string): Promise<T
   });
   if (!res.ok) throw new Error(`Falha ao registrar ${username}: ${await res.text()}`);
   const body = (await res.json()) as { accessToken: string; user: { id: string } };
-  return { id: body.user.id, username, accessToken: body.accessToken };
+  const user = {
+    id: body.user.id,
+    username,
+    accessToken: body.accessToken,
+    deviceId: `${username}-device-${randomBytes(8).toString('hex')}`,
+    identityKey: `idk-${randomBytes(24).toString('base64url')}`,
+  };
+
+  // Toda mensagem privada exige um dispositivo registrado: o backend recusa
+  // envelopes cujo senderDeviceId não pertença ao remetente.
+  const device = await fetch(`${baseUrl}/api/e2ee/devices`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${user.accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      deviceId: user.deviceId,
+      identityKey: user.identityKey,
+      signingKey: `sgn-${randomBytes(24).toString('base64url')}`,
+      displayName: `${username} test device`,
+    }),
+  });
+  if (!device.ok) throw new Error(`Falha ao registrar dispositivo: ${await device.text()}`);
+
+  return user;
+}
+
+/**
+ * Monta um envelope no formato que o cliente envia. Estes testes exercitam o
+ * caminho do SERVIDOR — que trata o campo como opaco — e não a criptografia em
+ * si, coberta por apps/desktop/test/crypto.spec.ts com Olm de verdade.
+ */
+export function envelopeFor(user: TestUser, ciphertext: string) {
+  return {
+    algorithm: 'm.megolm.v1.aes-sha2' as const,
+    ciphertext,
+    senderDeviceId: user.deviceId,
+    senderKey: user.identityKey,
+    sessionId: `session-${user.username}`,
+  };
 }
 
 export function authed(user: TestUser): Record<string, string> {

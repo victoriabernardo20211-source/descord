@@ -10,55 +10,56 @@ datasource db {
 // ─────────────────────────── Usuários e sessões ───────────────────────────
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  username     String   @unique
-  displayName  String
-  passwordHash String
-  avatarUrl    String?
-  bannerUrl    String?
-  bio          String?
-  isGlobalAdmin Boolean @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  email         String   @unique
+  username      String   @unique
+  displayName   String
+  passwordHash  String
+  avatarUrl     String?
+  bannerUrl     String?
+  bio           String?
+  isGlobalAdmin Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  sessions            Session[]
-  settings            UserSettings?
-  ownedServers        Server[]           @relation("ServerOwner")
-  memberships         ServerMember[]
-  messages            Message[]
-  directMessages      DirectMessage[]
-  reactions           MessageReaction[]
-  conversations       DirectConversationParticipant[]
-  sentRequests        FriendRequest[]    @relation("FriendRequestFrom")
-  receivedRequests    FriendRequest[]    @relation("FriendRequestTo")
-  friendshipsA        Friendship[]       @relation("FriendshipA")
-  friendshipsB        Friendship[]       @relation("FriendshipB")
-  blocksMade          Block[]            @relation("Blocker")
-  blocksReceived      Block[]            @relation("Blocked")
-  notifications       Notification[]
-  reads               ChannelRead[]
-  invitesCreated      ServerInvite[]
-  auditEntries        AuditLog[]         @relation("AuditActor")
-  bansIssued          ServerBan[]        @relation("BanIssuer")
-  bansReceived        ServerBan[]        @relation("BanTarget")
-  pins                PinnedMessage[]
-  voiceSessions       VoiceSession[]
-  callParticipations  CallParticipant[]
-  presence            Presence?
+  sessions           Session[]
+  settings           UserSettings?
+  ownedServers       Server[]                        @relation("ServerOwner")
+  memberships        ServerMember[]
+  messages           Message[]
+  directMessages     DirectMessage[]
+  reactions          MessageReaction[]
+  conversations      DirectConversationParticipant[]
+  sentRequests       FriendRequest[]                 @relation("FriendRequestFrom")
+  receivedRequests   FriendRequest[]                 @relation("FriendRequestTo")
+  friendshipsA       Friendship[]                    @relation("FriendshipA")
+  friendshipsB       Friendship[]                    @relation("FriendshipB")
+  blocksMade         Block[]                         @relation("Blocker")
+  blocksReceived     Block[]                         @relation("Blocked")
+  notifications      Notification[]
+  reads              ChannelRead[]
+  invitesCreated     ServerInvite[]
+  auditEntries       AuditLog[]                      @relation("AuditActor")
+  bansIssued         ServerBan[]                     @relation("BanIssuer")
+  bansReceived       ServerBan[]                     @relation("BanTarget")
+  pins               PinnedMessage[]
+  voiceSessions      VoiceSession[]
+  callParticipations CallParticipant[]
+  presence           Presence?
+  devices            Device[]
 }
 
 /// Uma sessão = um dispositivo logado. O refresh token é guardado apenas como hash.
 model Session {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  refreshTokenHash String   @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique
   deviceName       String?
   ipAddress        String?
   userAgent        String?
-  createdAt        DateTime @default(now())
-  lastUsedAt       DateTime @default(now())
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime  @default(now())
   expiresAt        DateTime
   revokedAt        DateTime?
 
@@ -67,35 +68,35 @@ model Session {
 }
 
 model UserSettings {
-  id                   String  @id @default(cuid())
-  userId               String  @unique
-  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  theme                String  @default("dark")
-  locale               String  @default("pt-BR")
-  inputMode            String  @default("VOICE_ACTIVITY") // VOICE_ACTIVITY | PUSH_TO_TALK
-  pushToTalkKey        String?
-  inputDeviceId        String?
-  outputDeviceId       String?
-  inputVolume          Int     @default(100)
-  outputVolume         Int     @default(100)
-  noiseSuppression     Boolean @default(true)
-  echoCancellation     Boolean @default(true)
-  autoGainControl      Boolean @default(true)
-  minimizeToTray       Boolean @default(true)
-  launchOnStartup      Boolean @default(false)
-  notificationSounds   Boolean @default(true)
-  shareActivity        Boolean @default(false)
+  id                 String  @id @default(cuid())
+  userId             String  @unique
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme              String  @default("dark")
+  locale             String  @default("pt-BR")
+  inputMode          String  @default("VOICE_ACTIVITY") // VOICE_ACTIVITY | PUSH_TO_TALK
+  pushToTalkKey      String?
+  inputDeviceId      String?
+  outputDeviceId     String?
+  inputVolume        Int     @default(100)
+  outputVolume       Int     @default(100)
+  noiseSuppression   Boolean @default(true)
+  echoCancellation   Boolean @default(true)
+  autoGainControl    Boolean @default(true)
+  minimizeToTray     Boolean @default(true)
+  launchOnStartup    Boolean @default(false)
+  notificationSounds Boolean @default(true)
+  shareActivity      Boolean @default(false)
 }
 
 /// Presença durável (último estado conhecido). O estado ao vivo fica no Redis.
 model Presence {
-  userId       String   @id
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  status       String   @default("OFFLINE")
+  userId       String    @id
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status       String    @default("OFFLINE")
   customStatus String?
   customEmoji  String?
   clearAt      DateTime?
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime  @updatedAt
 }
 
 // ─────────────────────────── Amizades ───────────────────────────
@@ -126,12 +127,12 @@ model FriendRequest {
 }
 
 model Block {
-  id          String   @id @default(cuid())
-  blockerId   String
-  blockedId   String
-  blocker     User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
-  blocked     User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
   @@unique([blockerId, blockedId])
   @@index([blockedId])
@@ -262,18 +263,18 @@ model ChannelPermission {
 }
 
 model ServerInvite {
-  id          String   @id @default(cuid())
-  code        String   @unique
+  id          String    @id @default(cuid())
+  code        String    @unique
   serverId    String
-  server      Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  server      Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
   createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
   /// null = nunca expira
   expiresAt   DateTime?
   /// 0 = ilimitado
-  maxUses     Int      @default(0)
-  uses        Int      @default(0)
-  createdAt   DateTime @default(now())
+  maxUses     Int       @default(0)
+  uses        Int       @default(0)
+  createdAt   DateTime  @default(now())
 
   @@index([serverId])
 }
@@ -295,21 +296,21 @@ model ServerBan {
 // ─────────────────────────── Mensagens de servidor ───────────────────────────
 
 model Message {
-  id              String   @id @default(cuid())
-  channelId       String
-  channel         Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  authorId        String
-  author          User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  content         String
-  createdAt       DateTime @default(now())
-  editedAt        DateTime?
-  replyToId       String?
-  replyTo         Message? @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies         Message[] @relation("MessageReply")
-  mentionsEveryone Boolean @default(false)
-  mentionedUserIds String[] @default([])
+  id               String    @id @default(cuid())
+  channelId        String
+  channel          Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId         String
+  author           User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content          String
+  createdAt        DateTime  @default(now())
+  editedAt         DateTime?
+  replyToId        String?
+  replyTo          Message?  @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies          Message[] @relation("MessageReply")
+  mentionsEveryone Boolean   @default(false)
+  mentionedUserIds String[]  @default([])
   /// Idempotência de envio (retry não duplica).
-  clientMessageId String?
+  clientMessageId  String?
 
   attachments MessageAttachment[]
   reactions   MessageReaction[]
@@ -409,20 +410,28 @@ model DirectConversationParticipant {
 /// expiresAt é definido apenas pelo servidor e nunca é estendido, nem por admin.
 /// Ver DirectMessagesService e ExpirationService.
 model DirectMessage {
-  id              String             @id @default(cuid())
-  conversationId  String
-  conversation    DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  authorId        String
-  author          User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  content         String
-  createdAt       DateTime           @default(now())
-  editedAt        DateTime?
+  id               String             @id @default(cuid())
+  conversationId   String
+  conversation     DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorId         String
+  author           User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  /// CIFRADO ponta a ponta. O servidor guarda e devolve este campo sem nunca
+  /// conseguir lê-lo — a chave existe apenas nos dispositivos dos participantes.
+  content          String
+  /// Algoritmo do envelope (hoje sempre "m.megolm.v1.aes-sha2"). null = legado em texto.
+  algorithm        String?
+  /// Identidade do dispositivo remetente e da sessão Megolm, necessárias para decifrar.
+  senderDeviceId   String?
+  senderKey        String?
+  sessionId        String?
+  createdAt        DateTime           @default(now())
+  editedAt         DateTime?
   /// Momento exato (UTC) da remoção permanente.
-  expiresAt       DateTime
-  replyToId       String?
-  mentionedUserIds String[]          @default([])
-  mentionsEveryone Boolean           @default(false)
-  clientMessageId String?
+  expiresAt        DateTime
+  replyToId        String?
+  mentionedUserIds String[]           @default([])
+  mentionsEveryone Boolean            @default(false)
+  clientMessageId  String?
 
   attachments DirectMessageAttachment[]
 
@@ -451,12 +460,12 @@ model DirectMessageAttachment {
 // ─────────────────────────── Voz e chamadas ───────────────────────────
 
 model VoiceSession {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   channelId String
-  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channel   Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  joinedAt  DateTime @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime  @default(now())
   leftAt    DateTime?
 
   @@index([channelId])
@@ -500,9 +509,9 @@ model CallParticipant {
 // ─────────────────────────── Notificações e auditoria ───────────────────────────
 
 model Notification {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   type           String
   serverId       String?
   channelId      String?
@@ -511,7 +520,7 @@ model Notification {
   actorId        String?
   preview        String?
   readAt         DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   @@index([userId, createdAt])
 }
@@ -528,4 +537,61 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([serverId, createdAt])
+}
+
+// ─────────────── Criptografia ponta a ponta (Olm/Megolm) ───────────────
+
+/// Um dispositivo = uma instalação do app. As chaves PRIVADAS nunca chegam
+/// aqui: o servidor só guarda as públicas para que os outros possam cifrar.
+model Device {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Identificador estável gerado no próprio dispositivo.
+  deviceId    String
+  displayName String?
+  /// Curve25519 — usada para estabelecer sessões Olm.
+  identityKey String
+  /// Ed25519 — usada para assinar e para o número de segurança (fingerprint).
+  signingKey  String
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  oneTimeKeys OneTimeKey[]
+
+  @@unique([userId, deviceId])
+  @@index([userId])
+}
+
+/// Prekeys de uso único. Cada uma é entregue no máximo uma vez e apagada na
+/// entrega, para que duas sessões nunca partam do mesmo material.
+model OneTimeKey {
+  id        String   @id @default(cuid())
+  deviceId  String
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  keyId     String
+  key       String
+  createdAt DateTime @default(now())
+
+  @@unique([deviceId, keyId])
+  @@index([deviceId])
+}
+
+/// Mensagem opaca de dispositivo para dispositivo — usada para entregar as
+/// chaves de sessão Megolm. O servidor apenas encaminha; o conteúdo é cifrado
+/// com Olm e ele não consegue abrir.
+model ToDeviceMessage {
+  id             String   @id @default(cuid())
+  targetUserId   String
+  targetDeviceId String
+  senderUserId   String
+  senderDeviceId String
+  /// Envelope Olm serializado (opaco para o servidor).
+  payload        String
+  createdAt      DateTime @default(now())
+  /// Descartada automaticamente se o dispositivo não buscar a tempo.
+  expiresAt      DateTime
+
+  @@index([targetUserId, targetDeviceId])
+  @@index([expiresAt])
 }

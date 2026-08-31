@@ -29,6 +29,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@matrix-org/olm':
+        specifier: ^3.2.15
+        version: 3.2.15
       electron-updater:
         specifier: ^6.3.9
         version: 6.8.9
@@ -907,6 +910,9 @@ packages:
   '@malept/flatpak-bundler@0.4.0':
     resolution: {integrity: sha512-9QOtNffcOF/c1seMCDnjckb3R9WHcG34tky+FHpNKKCW0wc/scYLwMtO+ptyGUfMW0/b/n4qRiALlaFHc9Oj7Q==}
     engines: {node: '>= 10.0.0'}
+
+  '@matrix-org/olm@3.2.15':
+    resolution: {integrity: sha512-S7lOrndAK9/8qOtaTq/WhttJC/o4GAzdfK0MUPpo8ApzsJEC0QjtwrkC3KBXdFP1cD1MXi/mlKR7aaoVMKgs6Q==}
 
   '@microsoft/tsdoc@0.15.1':
     resolution: {integrity: sha512-4aErSrCR/On/e5G2hDP0wjooqDdauzEbIq8hIkIe5pXV0rtWJZvdCEKL0ykZxex+IxIwBp0eGeV48hQN07dXtw==}
@@ -5280,6 +5286,8 @@ snapshots:
       tmp-promise: 3.0.3
     transitivePeerDependencies:
       - supports-color
+
+  '@matrix-org/olm@3.2.15': {}
 
   '@microsoft/tsdoc@0.15.1': {}
 

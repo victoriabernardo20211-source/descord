@@ -5,6 +5,7 @@ Cada fase só é considerada pronta quando `lint`, `typecheck`, `test` e `build`
 | Fase | Escopo | Situação |
 |---|---|---|
 | 1 | monorepo, auth, amigos, servidores, categorias, canais, chat, WebSocket, DMs com expiração de 8h, uploads, permissões, notificações | **pronta** |
+| 1.5 | criptografia ponta a ponta das DMs e grupos privados (Olm/Megolm) | **pronta** |
 | 2 | voz (LiveKit), mic, mute/deafen, PTT, volume por usuário, chamadas privadas, **chamar atenção / vibrar tela** | próxima |
 | 3 | compartilhamento de tela, resolução/FPS, áudio da tela, múltiplos streams, fullscreen/popout | planejada |
 | 4 | busca na UI, pins na UI, cargos na UI, status/atividade, tray, atalhos, autostart | planejada |
@@ -86,6 +87,17 @@ desligar a animação.
 - Volume por usuário, 0–200 %, salvo localmente
 - Chamadas privadas em DM: `calling` / `ringing` / `connected` / `ended` / `missed` / `declined`
 - Emissão de token LiveKit validando `CONNECT`, `SPEAK` e `STREAM` — já previsto no backend
+
+## Pendências conhecidas do E2EE
+
+Ficaram fora desta entrega e valem uma fase futura:
+
+- **Anexos de DM ainda não são cifrados no cliente.** A mensagem é, o arquivo não.
+  Próximo passo: cifrar com AES-256-GCM antes do upload e mandar a chave dentro do
+  envelope Megolm. O servidor passaria a guardar blob opaco.
+- **Verificação de contato pela UI.** O número de segurança já é calculado; falta a
+  tela para comparar e marcar um dispositivo como verificado.
+- **Aviso visual de dispositivo novo** na conversa (o evento já existe no backend).
 
 ## Fase 3 — compartilhamento de tela
 

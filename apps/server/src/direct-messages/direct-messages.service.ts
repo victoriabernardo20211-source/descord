@@ -5,7 +5,13 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateMessageInput, DM_TTL_MS, DirectMessage, MESSAGE_PAGE_SIZE } from '@nexus/shared';
+import {
+  CreateEncryptedMessageInput,
+  DM_TTL_MS,
+  DirectMessage,
+  EncryptedEnvelope,
+  MESSAGE_PAGE_SIZE,
+} from '@nexus/shared';
 import { AppConfig, CONFIG } from '../config/configuration';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsService, room } from '../realtime/events.service';
@@ -31,6 +37,11 @@ interface AttachmentRow {
  *
  * Toda leitura filtra por `expiresAt > now()`: mesmo que a fila e o cron estejam
  * parados, a API nunca devolve uma mensagem vencida.
+ *
+ * CRIPTOGRAFIA PONTA A PONTA: o `content` que chega aqui já vem cifrado pelo
+ * dispositivo remetente. Este serviço trata o campo como bytes opacos — ele
+ * armazena, entrega e apaga, mas nunca lê. Por isso as menções chegam prontas
+ * do cliente, e não podem ser extraídas do texto.
  */
 @Injectable()
 export class DirectMessagesService {
@@ -173,16 +184,13 @@ export class DirectMessagesService {
   async send(
     conversationId: string,
     userId: string,
-    input: CreateMessageInput,
+    input: CreateEncryptedMessageInput,
   ): Promise<DirectMessage> {
     await this.assertParticipant(conversationId, userId);
 
-    if (!input.content.trim() && !(input.attachmentIds?.length ?? 0)) {
-      throw new ForbiddenException({
-        code: 'EMPTY_MESSAGE',
-        message: 'Escreva algo ou anexe um arquivo.',
-      });
-    }
+    // O remetente precisa declarar de qual dispositivo veio a mensagem, e esse
+    // dispositivo tem que ser dele — assim ninguém forja a origem do envelope.
+    await this.assertOwnDevice(userId, input.encryption.senderDeviceId);
 
     // Idempotência: reenviar o mesmo clientMessageId devolve a mensagem existente.
     if (input.clientMessageId) {
@@ -208,12 +216,18 @@ export class DirectMessagesService {
       data: {
         conversationId,
         authorId: userId,
-        content: input.content,
+        // Texto cifrado. Ilegível para o servidor e para o banco de dados.
+        content: input.encryption.ciphertext,
+        algorithm: input.encryption.algorithm,
+        senderDeviceId: input.encryption.senderDeviceId,
+        senderKey: input.encryption.senderKey,
+        sessionId: input.encryption.sessionId,
         createdAt: now,
         expiresAt,
         replyToId: input.replyToId ?? null,
         clientMessageId: input.clientMessageId ?? null,
-        mentionedUserIds: extractMentions(input.content),
+        // Calculadas no cliente: o servidor não consegue ler o texto para extraí-las.
+        mentionedUserIds: input.mentionedUserIds ?? [],
         attachments: {
           create: attachments.map((a) => ({
             storageKey: a.storageKey,
@@ -237,7 +251,11 @@ export class DirectMessagesService {
     return dto;
   }
 
-  async edit(messageId: string, userId: string, content: string): Promise<DirectMessage> {
+  async edit(
+    messageId: string,
+    userId: string,
+    encryption: EncryptedEnvelope,
+  ): Promise<DirectMessage> {
     const message = await this.prisma.directMessage.findFirst({
       where: { id: messageId, expiresAt: { gt: new Date() } },
       include: { author: true, attachments: true },
@@ -253,10 +271,19 @@ export class DirectMessagesService {
       });
     }
 
+    await this.assertOwnDevice(userId, encryption.senderDeviceId);
+
     // Editar NÃO renova expiresAt: o prazo conta do envio original.
     const updated = await this.prisma.directMessage.update({
       where: { id: messageId },
-      data: { content, editedAt: new Date(), mentionedUserIds: extractMentions(content) },
+      data: {
+        content: encryption.ciphertext,
+        algorithm: encryption.algorithm,
+        senderDeviceId: encryption.senderDeviceId,
+        senderKey: encryption.senderKey,
+        sessionId: encryption.sessionId,
+        editedAt: new Date(),
+      },
       include: { author: true, attachments: true },
     });
 
@@ -283,6 +310,20 @@ export class DirectMessagesService {
       id: messageId,
       conversationId: message.conversationId,
     });
+  }
+
+  /** O envelope precisa vir de um dispositivo registrado pelo próprio remetente. */
+  private async assertOwnDevice(userId: string, deviceId: string): Promise<void> {
+    const device = await this.prisma.device.findUnique({
+      where: { userId_deviceId: { userId, deviceId } },
+      select: { id: true },
+    });
+    if (!device) {
+      throw new ForbiddenException({
+        code: 'DEVICE_NOT_REGISTERED',
+        message: 'Este dispositivo não está registrado para criptografia.',
+      });
+    }
   }
 
   private async hydrate(conversationId: string) {
@@ -324,6 +365,15 @@ export class DirectMessagesService {
       createdAt: message.createdAt.toISOString(),
       editedAt: message.editedAt?.toISOString() ?? null,
       expiresAt: message.expiresAt.toISOString(),
+      encryption: message.algorithm
+        ? {
+            algorithm: message.algorithm,
+            ciphertext: message.content,
+            senderDeviceId: message.senderDeviceId,
+            senderKey: message.senderKey,
+            sessionId: message.sessionId,
+          }
+        : null,
       replyToId: message.replyToId,
       clientMessageId: message.clientMessageId,
       mentionsEveryone: message.mentionsEveryone,

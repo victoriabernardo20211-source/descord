@@ -309,6 +309,10 @@ CREATE TABLE "DirectMessage" (
     "conversationId" TEXT NOT NULL,
     "authorId" TEXT NOT NULL,
     "content" TEXT NOT NULL,
+    "algorithm" TEXT,
+    "senderDeviceId" TEXT,
+    "senderKey" TEXT,
+    "sessionId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "editedAt" TIMESTAMP(3),
     "expiresAt" TIMESTAMP(3) NOT NULL,
@@ -398,6 +402,45 @@ CREATE TABLE "AuditLog" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Device" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "deviceId" TEXT NOT NULL,
+    "displayName" TEXT,
+    "identityKey" TEXT NOT NULL,
+    "signingKey" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastSeenAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Device_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "OneTimeKey" (
+    "id" TEXT NOT NULL,
+    "deviceId" TEXT NOT NULL,
+    "keyId" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "OneTimeKey_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ToDeviceMessage" (
+    "id" TEXT NOT NULL,
+    "targetUserId" TEXT NOT NULL,
+    "targetDeviceId" TEXT NOT NULL,
+    "senderUserId" TEXT NOT NULL,
+    "senderDeviceId" TEXT NOT NULL,
+    "payload" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ToDeviceMessage_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -543,6 +586,24 @@ CREATE INDEX "Notification_userId_createdAt_idx" ON "Notification"("userId", "cr
 
 -- CreateIndex
 CREATE INDEX "AuditLog_serverId_createdAt_idx" ON "AuditLog"("serverId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "Device_userId_idx" ON "Device"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Device_userId_deviceId_key" ON "Device"("userId", "deviceId");
+
+-- CreateIndex
+CREATE INDEX "OneTimeKey_deviceId_idx" ON "OneTimeKey"("deviceId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OneTimeKey_deviceId_keyId_key" ON "OneTimeKey"("deviceId", "keyId");
+
+-- CreateIndex
+CREATE INDEX "ToDeviceMessage_targetUserId_targetDeviceId_idx" ON "ToDeviceMessage"("targetUserId", "targetDeviceId");
+
+-- CreateIndex
+CREATE INDEX "ToDeviceMessage_expiresAt_idx" ON "ToDeviceMessage"("expiresAt");
 
 -- AddForeignKey
 ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -690,4 +751,10 @@ ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_serverId_fkey" FOREIGN KEY ("ser
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Device" ADD CONSTRAINT "Device_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "OneTimeKey" ADD CONSTRAINT "OneTimeKey_deviceId_fkey" FOREIGN KEY ("deviceId") REFERENCES "Device"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

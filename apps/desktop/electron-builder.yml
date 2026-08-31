@@ -7,6 +7,9 @@ directories:
 files:
   - out/**/*
   - package.json
+# O Olm carrega um .wasm em tempo de execução; dentro do asar ele não é lido.
+asarUnpack:
+  - '**/node_modules/@matrix-org/olm/**'
 win:
   target:
     - target: nsis

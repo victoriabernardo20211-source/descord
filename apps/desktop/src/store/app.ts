@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { DirectMessage, Message, PresenceState, PublicUser } from '@nexus/shared';
 import { ApiClient } from '../lib/api';
+import { E2eeManager } from '../lib/e2ee';
 import { realtime, type ConnectionStatus } from '../lib/socket';
 import { bridge } from '../lib/bridge';
 
@@ -45,6 +46,13 @@ export interface Me {
   isGlobalAdmin: boolean;
 }
 
+/**
+ * DM já processada para exibição: `content` traz o texto decifrado. Quando a
+ * chave desta sessão não existe neste dispositivo, `decryptionFailed` fica
+ * verdadeiro e a UI explica o motivo em vez de mostrar lixo cifrado.
+ */
+export type DecryptedDirectMessage = DirectMessage & { decryptionFailed?: boolean };
+
 /** Mensagem otimista: aparece na hora e vira `sent` quando o servidor confirma. */
 export interface PendingMessage {
   clientMessageId: string;
@@ -56,6 +64,9 @@ type View = { kind: 'friends' } | { kind: 'dm'; conversationId: string } | { kin
 
 interface AppState {
   api: ApiClient | null;
+  e2ee: E2eeManager | null;
+  /** Estado da criptografia mostrado na UI. */
+  e2eeStatus: 'off' | 'ready' | 'unavailable' | 'weak-storage';
   apiUrl: string | null;
   status: 'boot' | 'needs-server' | 'server-unreachable' | 'login' | 'ready';
   connection: ConnectionStatus;
@@ -76,7 +87,7 @@ interface AppState {
   };
 
   messages: Record<string, Message[]>;
-  directMessages: Record<string, DirectMessage[]>;
+  directMessages: Record<string, DecryptedDirectMessage[]>;
   pending: Record<string, PendingMessage[]>;
   typing: Record<string, { userId: string; displayName: string }[]>;
   error: string | null;
@@ -118,6 +129,8 @@ const randomId = (): string =>
 
 export const useApp = create<AppState>((set, get) => ({
   api: null,
+  e2ee: null,
+  e2eeStatus: 'off',
   apiUrl: null,
   status: 'boot',
   connection: 'offline',
@@ -210,10 +223,14 @@ export const useApp = create<AppState>((set, get) => ({
     await api?.post('/auth/logout').catch(() => undefined);
     api?.setTokens(null);
     realtime.disconnect();
+    // O material criptográfico não sobrevive ao logout.
+    await get().e2ee?.reset().catch(() => undefined);
     await bridge.clearSession();
     // Nada de conteúdo privado sobrando em memória depois do logout.
     set({
       status: 'login',
+      e2ee: null,
+      e2eeStatus: 'off',
       me: null,
       servers: [],
       serverDetail: null,
@@ -253,9 +270,8 @@ export const useApp = create<AppState>((set, get) => ({
     const api = get().api;
     if (!api) return;
     set({ view: { kind: 'dm', conversationId }, activeChannelId: conversationId });
-    const messages = await api.get<DirectMessage[]>(
-      `/dm/conversations/${conversationId}/messages`,
-    );
+    const raw = await api.get<DirectMessage[]>(`/dm/conversations/${conversationId}/messages`);
+    const messages = await decryptAll(raw);
     set((state) => ({
       directMessages: { ...state.directMessages, [conversationId]: messages },
     }));
@@ -289,13 +305,33 @@ export const useApp = create<AppState>((set, get) => ({
       },
     }));
 
-    const path =
-      view.kind === 'dm'
-        ? `/dm/conversations/${activeChannelId}/messages`
-        : `/channels/${activeChannelId}/messages`;
-
     try {
-      await api.post(path, { content, clientMessageId, attachmentIds });
+      if (view.kind === 'dm') {
+        const e2ee = get().e2ee;
+        if (!e2ee?.ready) {
+          // Nunca cai para texto puro: preferimos falhar a enviar sem cifrar.
+          throw new Error(
+            'A criptografia ainda não está pronta neste dispositivo. Tente de novo em instantes.',
+          );
+        }
+        const conversation = get().conversations.find((c) => c.id === activeChannelId);
+        await e2ee.ensureSession(
+          activeChannelId,
+          conversation?.participants.map((p) => p.id) ?? [],
+        );
+        const encryption = await e2ee.encrypt(activeChannelId, content);
+        await api.post(`/dm/conversations/${activeChannelId}/messages`, {
+          encryption,
+          clientMessageId,
+          attachmentIds,
+        });
+      } else {
+        await api.post(`/channels/${activeChannelId}/messages`, {
+          content,
+          clientMessageId,
+          attachmentIds,
+        });
+      }
       // A mensagem real chega pelo WebSocket; aqui só limpamos o otimista.
       set((state) => ({
         pending: {
@@ -326,10 +362,11 @@ export const useApp = create<AppState>((set, get) => ({
       const current = directMessages[activeChannelId] ?? [];
       const oldest = current[0];
       if (!oldest) return;
-      const older = await api.get<DirectMessage[]>(
+      const olderRaw = await api.get<DirectMessage[]>(
         `/dm/conversations/${activeChannelId}/messages?before=${oldest.id}`,
       );
-      if (older.length === 0) return;
+      if (olderRaw.length === 0) return;
+      const older = await decryptAll(olderRaw);
       set((state) => ({
         directMessages: {
           ...state.directMessages,
@@ -440,8 +477,52 @@ async function afterLogin(
 
   set({ me, servers, conversations, friends, status: 'ready', error: null });
 
+  // Criptografia ponta a ponta: registra este dispositivo e publica as chaves
+  // públicas. As privadas ficam no processo principal e nunca chegam aqui.
+  const e2ee = new E2eeManager(api);
+  set({ e2ee });
+  if (!e2ee.available) {
+    set({ e2eeStatus: 'unavailable' });
+  } else {
+    try {
+      await e2ee.register(`${me.displayName} — Nexus Desktop`);
+      set({ e2eeStatus: e2ee.encryptionAtRest ? 'ready' : 'weak-storage' });
+    } catch (err) {
+      set({
+        e2eeStatus: 'unavailable',
+        error:
+          err instanceof Error
+            ? `Criptografia indisponível: ${err.message}`
+            : 'Não foi possível preparar a criptografia deste dispositivo.',
+      });
+    }
+  }
+
   if (api.token) realtime.connect(api.baseUrl, api.token);
   registerRealtimeHandlers();
+}
+
+/** Decifra uma lista de DMs preservando a ordem. */
+async function decryptAll(messages: DirectMessage[]): Promise<DecryptedDirectMessage[]> {
+  const e2ee = useApp.getState().e2ee;
+  return Promise.all(messages.map((message) => decryptOne(message, e2ee)));
+}
+
+async function decryptOne(
+  message: DirectMessage,
+  e2ee: E2eeManager | null,
+): Promise<DecryptedDirectMessage> {
+  // Mensagem sem envelope é conteúdo legado, anterior ao E2EE.
+  if (!message.encryption) return message;
+  if (!e2ee) return { ...message, content: '', decryptionFailed: true };
+
+  const plaintext = await e2ee.decrypt(message.encryption).catch(() => null);
+  if (plaintext === null) {
+    // Falhar aqui é o comportamento esperado quando este dispositivo não
+    // possui a chave daquela sessão — não é um erro a ser escondido.
+    return { ...message, content: '', decryptionFailed: true };
+  }
+  return { ...message, content: plaintext };
 }
 
 let handlersRegistered = false;
@@ -484,26 +565,54 @@ function registerRealtimeHandlers(): void {
   });
 
   realtime.on('dm.created', (message) => {
-    useApp.setState((state) => {
-      const list = state.directMessages[message.conversationId] ?? [];
-      if (list.some((m) => m.id === message.id)) return state;
-      return {
-        directMessages: { ...state.directMessages, [message.conversationId]: [...list, message] },
-      };
-    });
-    void maybeNotify(message.author.displayName, message.content, message.author.id);
+    void (async () => {
+      const decrypted = await decryptOne(message, useApp.getState().e2ee);
+      useApp.setState((state) => {
+        const list = state.directMessages[message.conversationId] ?? [];
+        if (list.some((m) => m.id === message.id)) return state;
+        return {
+          directMessages: {
+            ...state.directMessages,
+            [message.conversationId]: [...list, decrypted],
+          },
+        };
+      });
+      void maybeNotify(message.author.displayName, decrypted.content, message.author.id);
+    })();
   });
 
   realtime.on('dm.updated', (message) => {
-    useApp.setState((state) => {
-      const list = state.directMessages[message.conversationId] ?? [];
-      return {
-        directMessages: {
-          ...state.directMessages,
-          [message.conversationId]: list.map((m) => (m.id === message.id ? message : m)),
-        },
-      };
-    });
+    void (async () => {
+      const decrypted = await decryptOne(message, useApp.getState().e2ee);
+      useApp.setState((state) => {
+        const list = state.directMessages[message.conversationId] ?? [];
+        return {
+          directMessages: {
+            ...state.directMessages,
+            [message.conversationId]: list.map((m) => (m.id === message.id ? decrypted : m)),
+          },
+        };
+      });
+    })();
+  });
+
+  // Chegou chave de sessão para este dispositivo: importa e reabre a conversa
+  // atual, para que mensagens que não abriam passem a abrir.
+  realtime.on('e2ee.to_device', ({ targetDeviceId }) => {
+    const state = useApp.getState();
+    if (!state.e2ee || state.e2ee.deviceId !== targetDeviceId) return;
+    void (async () => {
+      const imported = await state.e2ee!.drainToDevice().catch(() => 0);
+      if (imported > 0 && state.view.kind === 'dm') {
+        await state.openConversation(state.view.conversationId);
+      }
+    })();
+  });
+
+  // Alguém adicionou ou removeu um dispositivo: a chave da sessão precisa ser
+  // reenviada, senão o aparelho novo não lê as próximas mensagens.
+  realtime.on('e2ee.devices_changed', ({ userId }) => {
+    useApp.getState().e2ee?.invalidateDevice(userId);
   });
 
   realtime.on('dm.deleted', ({ id, conversationId }) => {

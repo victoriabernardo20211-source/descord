@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MAX_MESSAGE_LENGTH } from './constants';
+import { MAX_CIPHERTEXT_LENGTH, MAX_MESSAGE_LENGTH } from './constants';
 
 export const usernameSchema = z
   .string()
@@ -80,10 +80,28 @@ export const messageSchema = z.object({
 });
 export type Message = z.infer<typeof messageSchema>;
 
+/**
+ * Envelope cifrado ponta a ponta. O servidor armazena e devolve estes campos
+ * sem nunca conseguir abrir `ciphertext`.
+ */
+export const encryptedEnvelopeSchema = z.object({
+  algorithm: z.literal('m.megolm.v1.aes-sha2'),
+  ciphertext: z.string().min(1).max(MAX_CIPHERTEXT_LENGTH),
+  senderDeviceId: z.string(),
+  senderKey: z.string(),
+  sessionId: z.string(),
+});
+export type EncryptedEnvelope = z.infer<typeof encryptedEnvelopeSchema>;
+
 /** DM carrega expiresAt obrigatório — o cliente só o exibe, nunca o define. */
 export const directMessageSchema = messageSchema.omit({ channelId: true, pinned: true }).extend({
   conversationId: z.string(),
   expiresAt: z.string(),
+  /**
+   * Presente quando a mensagem está cifrada (o padrão). Nesse caso `content`
+   * carrega o texto cifrado e só o cliente consegue transformá-lo em texto.
+   */
+  encryption: encryptedEnvelopeSchema.nullable(),
 });
 export type DirectMessage = z.infer<typeof directMessageSchema>;
 
@@ -95,6 +113,23 @@ export const createMessageSchema = z.object({
   clientMessageId: z.string().min(8).max(64).optional(),
 });
 export type CreateMessageInput = z.infer<typeof createMessageSchema>;
+
+/**
+ * Envio de mensagem privada. O `content` vai CIFRADO e o servidor não o lê —
+ * por isso as menções vêm calculadas pelo cliente, e não extraídas do texto.
+ */
+export const createEncryptedMessageSchema = z.object({
+  encryption: encryptedEnvelopeSchema,
+  replyToId: z.string().nullish(),
+  attachmentIds: z.array(z.string()).max(10).optional(),
+  clientMessageId: z.string().min(8).max(64).optional(),
+  mentionedUserIds: z.array(z.string()).max(20).optional(),
+});
+export type CreateEncryptedMessageInput = z.infer<typeof createEncryptedMessageSchema>;
+
+export const updateEncryptedMessageSchema = z.object({
+  encryption: encryptedEnvelopeSchema,
+});
 
 export const updateMessageSchema = z.object({
   content: z.string().min(1).max(MAX_MESSAGE_LENGTH),

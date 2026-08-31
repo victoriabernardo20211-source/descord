@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron';
 import { join } from 'node:path';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { cryptoService } from './crypto/crypto-service';
 
 /**
  * Processo principal. Regras de segurança (item 94 do plano):
@@ -106,11 +107,129 @@ ipcMain.handle('notify', (_event, payload: unknown) => {
   return true;
 });
 
+// ── Criptografia ponta a ponta ────────────────────────────────────────────
+// Só trafegam por aqui dados PÚBLICOS (chaves públicas, texto já cifrado) ou
+// texto que o próprio usuário acabou de digitar. Nenhuma chave privada e
+// nenhuma sessão serializada cruza esta fronteira.
+
+const deviceListSchema = (value: unknown): value is {
+  userId: string;
+  deviceId: string;
+  identityKey: string;
+  signingKey: string;
+}[] =>
+  Array.isArray(value) &&
+  value.every(
+    (d) =>
+      typeof d === 'object' &&
+      d !== null &&
+      typeof (d as Record<string, unknown>).userId === 'string' &&
+      typeof (d as Record<string, unknown>).deviceId === 'string' &&
+      typeof (d as Record<string, unknown>).identityKey === 'string',
+  );
+
+ipcMain.handle('e2ee:init', async () => cryptoService.init());
+
+ipcMain.handle('e2ee:one-time-keys', (_event, count: unknown) => {
+  const total = typeof count === 'number' && count > 0 && count <= 100 ? count : 50;
+  return cryptoService.generateOneTimeKeys(total);
+});
+
+ipcMain.handle('e2ee:missing-sessions', (_event, devices: unknown) => {
+  if (!deviceListSchema(devices)) throw new Error('Lista de dispositivos inválida.');
+  return cryptoService.missingSessions(devices);
+});
+
+ipcMain.handle('e2ee:create-sessions', (_event, input: unknown) => {
+  const entries = input as { device: unknown; oneTimeKey: unknown }[];
+  if (!Array.isArray(entries)) throw new Error('Entrada inválida.');
+  let created = 0;
+  for (const entry of entries) {
+    if (!deviceListSchema([entry.device]) || typeof entry.oneTimeKey !== 'string') continue;
+    cryptoService.createOutboundOlmSession(
+      (entry.device as { userId: string; deviceId: string; identityKey: string; signingKey: string }),
+      entry.oneTimeKey,
+    );
+    created += 1;
+  }
+  return { created };
+});
+
+ipcMain.handle('e2ee:share-session', (_event, input: unknown) => {
+  const { conversationId, devices } = (input ?? {}) as {
+    conversationId?: unknown;
+    devices?: unknown;
+  };
+  if (typeof conversationId !== 'string' || !deviceListSchema(devices)) {
+    throw new Error('Entrada inválida.');
+  }
+  return cryptoService.shareGroupSession(conversationId, devices);
+});
+
+ipcMain.handle('e2ee:receive-to-device', (_event, messages: unknown) => {
+  if (!Array.isArray(messages)) throw new Error('Entrada inválida.');
+  return cryptoService.receiveToDevice(
+    messages as { senderUserId: string; senderDeviceId: string; payload: string }[],
+  );
+});
+
+ipcMain.handle('e2ee:encrypt', (_event, input: unknown) => {
+  const { conversationId, plaintext } = (input ?? {}) as {
+    conversationId?: unknown;
+    plaintext?: unknown;
+  };
+  if (typeof conversationId !== 'string' || typeof plaintext !== 'string') {
+    throw new Error('Entrada inválida.');
+  }
+  return cryptoService.encrypt(conversationId, plaintext);
+});
+
+ipcMain.handle('e2ee:decrypt', (_event, envelope: unknown) => {
+  const value = (envelope ?? {}) as Record<string, unknown>;
+  if (typeof value.ciphertext !== 'string' || typeof value.sessionId !== 'string') {
+    return { error: 'INVALID_ENVELOPE' };
+  }
+  return cryptoService.decrypt(
+    value as unknown as Parameters<typeof cryptoService.decrypt>[0],
+  );
+});
+
+ipcMain.handle('e2ee:fingerprint', (_event, signingKey: unknown) =>
+  cryptoService.fingerprint(typeof signingKey === 'string' ? signingKey : undefined),
+);
+
+ipcMain.handle('e2ee:rotate-session', (_event, conversationId: unknown) => {
+  if (typeof conversationId !== 'string') throw new Error('Entrada inválida.');
+  cryptoService.rotateGroupSession(conversationId);
+  return { ok: true };
+});
+
+ipcMain.handle('e2ee:reset', async () => {
+  await cryptoService.reset();
+  return { ok: true };
+});
+
 ipcMain.handle('badge:set', (_event, count: unknown) => {
   if (typeof count !== 'number') return false;
   app.setBadgeCount?.(count);
   return true;
 });
+
+/**
+ * Instância única. Duas cópias do Nexus rodando gravariam o mesmo estado
+ * criptográfico ao mesmo tempo e poderiam corromper as sessões E2EE.
+ * A segunda execução apenas traz a janela existente para frente.
+ */
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
 
 app.whenReady().then(() => {
   // CSP em runtime: nem o renderer nem conteúdo carregado podem puxar script externo.
@@ -119,6 +238,17 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+// Fechar o app não pode perder uma chave de sessão recebida no último instante.
+app.on('before-quit', async (event) => {
+  if (flushed) return;
+  event.preventDefault();
+  await cryptoService.flush().catch(() => undefined);
+  flushed = true;
+  app.quit();
+});
+
+let flushed = false;
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

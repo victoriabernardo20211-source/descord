@@ -292,6 +292,7 @@ function ChatView(): JSX.Element {
   const typing = useApp((s) => s.typing);
   const loadOlder = useApp((s) => s.loadOlder);
   const me = useApp((s) => s.me);
+  const e2eeStatus = useApp((s) => s.e2eeStatus);
 
   const isDm = view.kind === 'dm';
   const list = activeChannelId
@@ -332,15 +333,7 @@ function ChatView(): JSX.Element {
         )}
       </header>
 
-      {isDm && (
-        <div className="flex items-center gap-2 border-b border-ink-800 bg-ink-850/60 px-4 py-2 text-xs text-mist-400">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 7v5l3 2" strokeLinecap="round" />
-          </svg>
-          As mensagens desta conversa são apagadas permanentemente 8 horas após o envio.
-        </div>
-      )}
+      {isDm && <PrivacyBanner />}
 
       <MessageList
         messages={list}
@@ -354,8 +347,69 @@ function ChatView(): JSX.Element {
           .map((t) => t.displayName)}
       />
 
-      <Composer placeholder={`Conversar em ${isDm ? title : `#${title}`}`} />
+      <Composer
+        placeholder={
+          isDm && e2eeStatus === 'unavailable'
+            ? 'Criptografia indisponível — não é possível enviar'
+            : `Conversar em ${isDm ? title : `#${title}`}`
+        }
+        disabled={isDm && e2eeStatus === 'unavailable'}
+      />
     </div>
+  );
+}
+
+/**
+ * Duas garantias da conversa privada, ditas de forma direta: ninguém fora dela
+ * consegue ler, e nada sobrevive a 8 horas.
+ */
+function PrivacyBanner(): JSX.Element {
+  const e2eeStatus = useApp((s) => s.e2eeStatus);
+
+  if (e2eeStatus === 'unavailable') {
+    return (
+      <div className="flex items-center gap-2 border-b border-alert-500/30 bg-alert-500/10 px-4 py-2 text-xs text-alert-500">
+        <LockIcon />
+        Criptografia indisponível neste dispositivo. O envio está bloqueado — nenhuma mensagem
+        privada sai sem estar cifrada.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-ink-800 bg-ink-850/60 px-4 py-2 text-xs text-mist-400">
+      <span className="flex items-center gap-1.5">
+        <LockIcon />
+        Criptografada ponta a ponta — nem o servidor consegue ler.
+      </span>
+      <span className="flex items-center gap-1.5">
+        <ClockIcon />
+        Apagada permanentemente 8 horas após o envio.
+      </span>
+      {e2eeStatus === 'weak-storage' && (
+        <span className="text-warn-500">
+          Atenção: o sistema não protege as chaves em repouso neste computador.
+        </span>
+      )}
+    </div>
+  );
+}
+
+function LockIcon(): JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+      <rect x="4" y="10" width="16" height="11" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ClockIcon(): JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" strokeLinecap="round" />
+    </svg>
   );
 }
 

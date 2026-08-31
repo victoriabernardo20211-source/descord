@@ -7,7 +7,12 @@ import { renderMarkdown } from '../lib/markdown';
 import { formatDay, formatTime } from '../lib/time';
 import { useApp, type PendingMessage } from '../store/app';
 
-type AnyMessage = (Message | DirectMessage) & { expiresAt?: string; channelId?: string };
+type AnyMessage = (Message | DirectMessage) & {
+  expiresAt?: string;
+  channelId?: string;
+  /** DM cifrada que este dispositivo não tem chave para abrir. */
+  decryptionFailed?: boolean;
+};
 
 interface Props {
   messages: AnyMessage[];
@@ -97,9 +102,20 @@ export function MessageList({ messages, pending, onLoadOlder }: Props): JSX.Elem
                   </div>
                 )}
 
-                <div className="text-mist-200">
-                  {renderMarkdown(message.content, resolveMention)}
-                </div>
+                {message.decryptionFailed ? (
+                  <div className="flex items-center gap-2 rounded-md border border-ink-600 bg-ink-850 px-3 py-2 text-xs text-mist-400">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                      <rect x="4" y="10" width="16" height="11" rx="2" />
+                      <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeLinecap="round" />
+                    </svg>
+                    Não foi possível abrir esta mensagem: ela foi enviada antes deste
+                    computador entrar na conversa.
+                  </div>
+                ) : (
+                  <div className="text-mist-200">
+                    {renderMarkdown(message.content, resolveMention)}
+                  </div>
+                )}
 
                 {message.attachments.length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-2">

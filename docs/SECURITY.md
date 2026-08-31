@@ -77,36 +77,44 @@ de até 60 s em que a linha ainda pode existir fisicamente no banco (por exemplo
 falhou). Nessa janela ela já é **inacessível** por qualquer API. Quem tem acesso `psql` direto
 ao servidor pode ver essa linha. Isso é uma consequência de o servidor ser seu.
 
-## Criptografia: o que existe hoje
-
-Seja claro sobre o nível real alcançado:
+## Criptografia
 
 | Camada | Situação |
 |---|---|
-| Em trânsito | **TLS** (HTTPS/WSS) via Caddy, ou a rede criptografada do Tailscale (WireGuard). |
+| Em trânsito | **TLS** (HTTPS/WSS) via Caddy, ou a rede WireGuard do Tailscale. |
 | Mídia (Fase 2/3) | **DTLS-SRTP**, obrigatório no WebRTC. |
 | Senhas | Argon2id. |
 | Refresh tokens | Apenas o hash é armazenado. |
-| **Mensagens em repouso** | **Texto legível no PostgreSQL.** Quem administra o servidor pode lê-las. |
+| **Mensagens privadas (DMs e grupos privados)** | **Ponta a ponta, com Olm/Megolm.** O servidor guarda texto cifrado que não consegue abrir. |
+| Mensagens de canal de servidor | Texto legível no PostgreSQL — decisão consciente, ver abaixo. |
 
-Ou seja: **isto não é criptografia ponta-a-ponta.** O modelo de confiança é "o servidor é
-nosso e o administrador é de confiança" — razoável para 9 amigos com uma VPS própria, mas
-precisa ser dito, não presumido.
+O detalhamento completo do E2EE (protocolo, ciclo de vida das chaves, o que o
+servidor ainda enxerga e as limitações reais) está em [`E2EE.md`](E2EE.md).
 
-Melhorias possíveis, em ordem de custo:
+### Por que os canais de servidor não são E2EE
 
-1. **Disco criptografado na VPS** (LUKS) — protege contra o provedor ou um disco descartado.
-   Barato e sem mudança de código.
-2. **Criptografia em repouso por conversa** — a chave fica no servidor. Protege contra dump de
-   banco vazado, não contra o administrador.
-3. **Ponta a ponta de verdade** — usar uma implementação estabelecida do **protocolo Signal**
-   (por exemplo `libsignal`), com chaves geradas e guardadas **apenas** nos dispositivos.
-   Muda muita coisa: histórico não sincroniza sozinho num dispositivo novo, busca no servidor
-   deixa de funcionar, anexos precisam ser cifrados antes do upload, e é preciso resolver
-   verificação de dispositivos. É uma fase própria, não um ajuste.
+Foi uma escolha, não um esquecimento. Criptografar os canais custaria a busca no
+servidor, exigiria rotação de chave a cada entrada/saída de membro e deixaria todo
+PC novo sem histórico nenhum. O conteúdo realmente sensível — conversa privada
+entre duas pessoas — está protegido, e é ele que também some em 8 horas.
 
-**Nunca implemente criptografia caseira.** Se for fazer E2E, use uma biblioteca auditada e um
-protocolo estabelecido.
+Se você mudar de ideia, a base já está pronta: o diretório de chaves, as sessões
+Olm e o canal dispositivo-a-dispositivo servem igual para canais; falta a rotação
+de chave por mudança de membro.
+
+### Nada de criptografia caseira
+
+Nenhuma primitiva criptográfica foi escrita neste projeto. Usamos o
+**Olm/Megolm** (`@matrix-org/olm`, Apache-2.0), a implementação do Double Ratchet
+que sustentou o Matrix em produção por anos. O código do Nexus apenas gerencia o
+ciclo de vida das sessões da biblioteca.
+
+### Proteção adicional que ainda vale a pena
+
+O E2EE protege o conteúdo, mas não os metadados (ver `E2EE.md`). Continua valendo:
+
+- **Disco criptografado na VPS** (LUKS) — protege metadados e mensagens de canal
+  contra o provedor ou um disco descartado. Barato e sem mudança de código.
 
 ## Cliente desktop
 

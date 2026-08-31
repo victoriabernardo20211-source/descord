@@ -40,6 +40,14 @@ export const eventSchemas = {
     conversationId: z.string(),
     messageIds: z.array(z.string()),
   }),
+  /** Há envelope de chave de sessão esperando por este dispositivo. */
+  'e2ee.to_device': z.object({ targetDeviceId: z.string() }),
+  /** Alguém adicionou ou removeu um dispositivo: as sessões precisam ser refeitas. */
+  'e2ee.devices_changed': z.object({
+    userId: z.string(),
+    deviceId: z.string(),
+    removed: z.boolean(),
+  }),
   'friend.requested': z.object({ requestId: z.string(), fromUserId: z.string() }),
   'friend.accepted': z.object({ userId: z.string() }),
   'friend.removed': z.object({ userId: z.string() }),

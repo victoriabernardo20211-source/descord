@@ -11,6 +11,16 @@ export const APP_NAME = 'Nexus';
 export const DM_TTL_MS = 8 * 60 * 60 * 1000;
 
 export const MAX_MESSAGE_LENGTH = 4000;
+/**
+ * O texto cifrado é bem maior que o original (envelope Megolm em base64).
+ * Este é o limite do campo que trafega até o servidor, não do que o usuário digita.
+ */
+export const MAX_CIPHERTEXT_LENGTH = 64_000;
+/** Abaixo deste estoque de prekeys o dispositivo repõe automaticamente. */
+export const ONE_TIME_KEY_TARGET = 50;
+/** Uma sessão Megolm não vive mais que isto nem cifra mais que MEGOLM_MAX_MESSAGES. */
+export const MEGOLM_ROTATION_MS = 8 * 60 * 60 * 1000;
+export const MEGOLM_MAX_MESSAGES = 200;
 export const MAX_UPLOAD_SIZE_DEFAULT = 100 * 1024 * 1024;
 export const MESSAGE_PAGE_SIZE = 50;
 export const TYPING_TTL_MS = 8000;

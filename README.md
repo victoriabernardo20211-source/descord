@@ -6,9 +6,13 @@ sem terceiros no meio.
 
 > Identidade própria. Nenhum asset, som, marca ou código de qualquer outro produto é usado aqui.
 
-**Regra central do produto:** toda mensagem em conversa privada é **apagada permanentemente
-8 horas após o envio** — do banco, do disco e da tela de todos os dispositivos. Não há como
-desativar, estender ou preservar. Ver [expiração de DMs](#expiração-de-dms-em-8-horas).
+**Duas regras centrais do produto:**
+
+1. Toda mensagem privada é **criptografada ponta a ponta** (Olm/Megolm). O servidor guarda
+   bytes que não consegue ler. Ver [`docs/E2EE.md`](docs/E2EE.md).
+2. Toda mensagem privada é **apagada permanentemente 8 horas após o envio** — do banco, do
+   disco e da tela de todos os dispositivos. Não há como desativar, estender ou preservar.
+   Ver [expiração de DMs](#expiração-de-dms-em-8-horas).
 
 ---
 
@@ -17,6 +21,7 @@ desativar, estender ou preservar. Ver [expiração de DMs](#expiração-de-dms-e
 | Fase | Conteúdo | Situação |
 |---|---|---|
 | **1** | Monorepo, auth, amigos, servidores, categorias, canais, chat, WebSocket, DMs com expiração de 8h, uploads, permissões, notificações | **Implementada** |
+| **1.5** | **Criptografia ponta a ponta** das DMs e grupos privados (Olm/Megolm), diretório de chaves, verificação por número de segurança | **Implementada** |
 | 2 | Canais de voz, LiveKit, microfone, mute/deafen, PTT, volume por usuário, chamadas privadas, chamar atenção/vibrar tela | Planejada |
 | 3 | Compartilhamento de tela, resolução/FPS, áudio da tela, múltiplos streams | Planejada |
 | 4 | Busca avançada, pins na UI, roles na UI, status/atividade, tray, atalhos, autostart | Parcial (backend pronto) |
@@ -200,8 +205,10 @@ autorização sempre no servidor, WebSocket com handshake autenticado e salas ca
 backend, uploads com MIME verificado pelo conteúdo, e Electron com `contextIsolation`,
 sandbox e IPC restrito.
 
-O nível de privacidade real alcançado — inclusive **o que ainda não é criptografia
-ponta-a-ponta** — está descrito honestamente em [`docs/SECURITY.md`](docs/SECURITY.md).
+As mensagens privadas são **criptografadas ponta a ponta** com Olm/Megolm: as chaves ficam
+no processo principal do Electron, protegidas pela DPAPI do Windows, e o servidor nunca vê
+texto claro. O que ele **ainda** enxerga (metadados: quem falou com quem e quando) está dito
+com todas as letras em [`docs/E2EE.md`](docs/E2EE.md).
 
 ---
 
@@ -212,6 +219,7 @@ ponta-a-ponta** — está descrito honestamente em [`docs/SECURITY.md`](docs/SEC
 | [`ARCHITECTURE_PLAN.md`](ARCHITECTURE_PLAN.md) | decisões de stack e por que cada uma |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | diagramas, fluxos, modelo de dados |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | auth, permissões, uploads, DMs, limitações |
+| [`docs/E2EE.md`](docs/E2EE.md) | criptografia ponta a ponta: protocolo, chaves, metadados |
 | [`docs/SERVER_SETUP.md`](docs/SERVER_SETUP.md) | instalação na VPS, passo a passo |
 | [`docs/WINDOWS_CLIENT.md`](docs/WINDOWS_CLIENT.md) | build, instalador, logs do cliente |
 | [`docs/BANDWIDTH.md`](docs/BANDWIDTH.md) | estimativas de banda, mesh × SFU |

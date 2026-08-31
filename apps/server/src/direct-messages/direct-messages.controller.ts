@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
-import { createMessageSchema, updateMessageSchema } from '@nexus/shared';
+import { createEncryptedMessageSchema, updateEncryptedMessageSchema } from '@nexus/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator';
 import { DirectMessagesService } from './direct-messages.service';
@@ -43,7 +43,8 @@ export class DirectMessagesController {
   send(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(createMessageSchema)) body: z.infer<typeof createMessageSchema>,
+    @Body(new ZodValidationPipe(createEncryptedMessageSchema))
+    body: z.infer<typeof createEncryptedMessageSchema>,
   ) {
     return this.dms.send(id, user.id, body);
   }
@@ -52,9 +53,10 @@ export class DirectMessagesController {
   edit(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(updateMessageSchema)) body: z.infer<typeof updateMessageSchema>,
+    @Body(new ZodValidationPipe(updateEncryptedMessageSchema))
+    body: z.infer<typeof updateEncryptedMessageSchema>,
   ) {
-    return this.dms.edit(id, user.id, body.content);
+    return this.dms.edit(id, user.id, body.encryption);
   }
 
   @Delete('messages/:id')
