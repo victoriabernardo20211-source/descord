@@ -1,0 +1,26 @@
+appId: app.nexus.desktop
+productName: Nexus
+copyright: Nexus
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.png
+  artifactName: Nexus-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Nexus
+# Preparado para auto-update: basta apontar para um servidor/release quando quiser.
+publish:
+  provider: generic
+  url: https://updates.example.invalid/nexus
+  # Nada é publicado por padrão; `release:windows` usa --publish never.

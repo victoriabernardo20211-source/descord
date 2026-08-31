@@ -30,7 +30,9 @@
       "sharp",
       "esbuild",
       "msgpackr-extract",
-      "@scarf/scarf"
+      "@scarf/scarf",
+      "electron",
+      "electron-winstaller"
     ]
   }
 }

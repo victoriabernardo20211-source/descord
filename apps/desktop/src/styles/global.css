@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+
+/* Identidade própria do Nexus: azul-noite frio com um roxo elétrico de destaque. */
+@theme {
+  --color-ink-950: #0b0d12;
+  --color-ink-900: #0f1116;
+  --color-ink-850: #14171f;
+  --color-ink-800: #1a1e27;
+  --color-ink-700: #232834;
+  --color-ink-600: #2e3543;
+  --color-ink-500: #3c4455;
+  --color-mist-400: #8b93a7;
+  --color-mist-200: #c3c9d6;
+  --color-mist-50: #eef1f7;
+  --color-pulse-500: #6f5cf0;
+  --color-pulse-400: #8b7bff;
+  --color-pulse-300: #a99cff;
+  --color-signal-500: #2fbf71;
+  --color-warn-500: #e0a33a;
+  --color-alert-500: #e05a5a;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-ink-900);
+  color: var(--color-mist-50);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-600);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-500);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-pulse-400);
+  outline-offset: 2px;
+}
