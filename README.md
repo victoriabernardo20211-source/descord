@@ -112,7 +112,14 @@ pnpm lint             # lint
 pnpm typecheck        # TypeScript strict em todo o monorepo
 pnpm build:desktop    # build do cliente
 pnpm release:windows  # gera Nexus-Setup-<versão>.exe
+
+./scripts/verify-release.sh   # clone limpo + build + boot no layout de produção
 ```
+
+Rode `verify-release.sh` **antes de qualquer deploy**. Lint, typecheck, testes e build
+passam usando os arquivos que estão no seu disco; esse script clona o repositório do zero
+e inicia o servidor construído no mesmo layout da imagem final. Foi assim que apareceram
+três falhas que nenhum dos outros comandos pegava.
 
 ---
 
