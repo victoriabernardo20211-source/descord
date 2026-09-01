@@ -57,6 +57,8 @@ export class VoiceConnection {
   localScreenStream: MediaStream | null = null;
   latencyMs = 0;
   error: string | null = null;
+  /** Aviso de que o próprio microfone não está no ar — não impede a chamada. */
+  micWarning: string | null = null;
 
   onChange(listener: Listener): () => void {
     this.listeners.add(listener);
@@ -114,6 +116,15 @@ export class VoiceConnection {
       await room.localParticipant.setMicrophoneEnabled(!input.pushToTalk);
       this.selfMuted = input.pushToTalk;
       this.room = room;
+
+      // Entrar na sala e publicar o microfone são coisas diferentes: dá para
+      // conectar bem e mesmo assim não ter nenhuma track no ar. Sem esta
+      // checagem a pessoa aparece "sem mudo" para si mesma e muda para todo
+      // mundo — foi exatamente o caso de "ninguém me ouve".
+      this.micWarning =
+        !input.pushToTalk && !room.localParticipant.getTrackPublication(Track.Source.Microphone)
+          ? 'Você está na chamada, mas seu microfone não foi publicado — ninguém te ouve. Confira a permissão de microfone do Windows para o Nexus.'
+          : null;
     } catch (err) {
       this.error =
         err instanceof Error ? err.message : 'Não foi possível entrar no canal de voz.';
@@ -135,13 +146,23 @@ export class VoiceConnection {
     this.localScreenStream = null;
     this.streaming = false;
     this.screenPublications = [];
+    this.micWarning = null;
     this.emit();
   }
 
   async setMuted(muted: boolean): Promise<void> {
     this.selfMuted = muted;
-    await this.room?.localParticipant.setMicrophoneEnabled(!muted).catch(() => undefined);
-    this.emit();
+    try {
+      await this.room?.localParticipant.setMicrophoneEnabled(!muted);
+      if (!muted) this.micWarning = null;
+    } catch (err) {
+      // Engolir este erro é o que fazia o botão "abrir" o microfone na tela
+      // sem abrir nada de verdade. Falha de publicação precisa aparecer.
+      this.selfMuted = true;
+      this.micWarning =
+        err instanceof Error ? err.message : 'Não foi possível abrir o microfone.';
+    }
+    this.refreshPeers();
   }
 
   /**
@@ -361,8 +382,11 @@ export class VoiceConnection {
       userId: participant.identity,
       displayName: participant.name || participant.identity,
       speaking: participant.isSpeaking,
+      // Para si mesma a verdade é a publicação, não a variável local: sem
+      // track publicada ninguém ouve, por mais que o botão pareça aberto.
       micMuted: isSelf
-        ? this.selfMuted
+        ? !participant.getTrackPublication(Track.Source.Microphone) ||
+          Boolean(participant.getTrackPublication(Track.Source.Microphone)?.isMuted)
         : !participant.getTrackPublication(Track.Source.Microphone)?.isSubscribed ||
           Boolean(participant.getTrackPublication(Track.Source.Microphone)?.isMuted),
       streaming: Boolean(participant.getTrackPublication(Track.Source.ScreenShare)),

@@ -140,6 +140,7 @@ function CallControls(): JSX.Element {
   const stopScreenShare = useApp((s) => s.stopScreenShare);
   const leaveVoice = useApp((s) => s.leaveVoice);
   const setSharing = useApp((s) => s.setSharePickerOpen);
+  const micWarning = useApp((s) => s.micWarning);
 
   const button = (
     label: string,
@@ -165,7 +166,13 @@ function CallControls(): JSX.Element {
   );
 
   return (
-    <div className="flex shrink-0 items-center justify-center gap-3 border-t border-ink-900 py-4">
+    <div className="flex shrink-0 flex-col items-center gap-3 border-t border-ink-900 py-4">
+      {micWarning && (
+        <p className="mx-4 rounded-md border border-alert-500/40 bg-alert-500/10 px-3 py-2 text-center text-xs text-alert-500">
+          {micWarning}
+        </p>
+      )}
+      <div className="flex items-center justify-center gap-3">
       {button(selfMuted ? 'Ativar microfone' : 'Silenciar', selfMuted, () => void toggleMute(), <MicIcon muted={selfMuted} />)}
       {button(selfDeafened ? 'Voltar a ouvir' : 'Ensurdecer', selfDeafened, () => void toggleDeafen(), <HeadphonesIcon muted={selfDeafened} />)}
       {button(
@@ -175,6 +182,7 @@ function CallControls(): JSX.Element {
         <ScreenIcon />,
       )}
       {button('Desconectar', false, () => void leaveVoice(), <HangUpIcon />, true)}
+      </div>
     </div>
   );
 }

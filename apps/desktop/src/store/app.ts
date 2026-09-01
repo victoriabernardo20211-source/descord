@@ -119,6 +119,8 @@ interface AppState {
   voiceChannelId: string | null;
   voiceConnecting: boolean;
   voiceError: string | null;
+  /** Microfone não está no ar, mas a chamada continua. */
+  micWarning: string | null;
   selfMuted: boolean;
   selfDeafened: boolean;
   streaming: boolean;
@@ -206,6 +208,7 @@ export const useApp = create<AppState>((set, get) => ({
   voiceChannelId: null,
   voiceConnecting: false,
   voiceError: null,
+  micWarning: null,
   selfMuted: false,
   selfDeafened: false,
   streaming: false,
@@ -581,6 +584,7 @@ export const useApp = create<AppState>((set, get) => ({
         voiceChannelId: channelId,
         voiceConnecting: false,
         selfMuted: voice.selfMuted,
+        micWarning: voice.micWarning,
         voiceState: { ...get().voiceState, [channelId]: participants },
         // Sem isto a pessoa entra na chamada e nada muda na tela — foi
         // exatamente o que fez parecer que o clique não tinha funcionado.
@@ -614,8 +618,12 @@ export const useApp = create<AppState>((set, get) => ({
   toggleMute: async () => {
     const next = !get().selfMuted;
     await voice.setMuted(next);
-    set({ selfMuted: next });
-    await get().api?.post('/voice/state', { selfMuted: next }).catch(() => undefined);
+    // Se a publicação falhar, `voice.selfMuted` continua true — a tela precisa
+    // mostrar o estado real, não o que a pessoa pediu.
+    set({ selfMuted: voice.selfMuted, micWarning: voice.micWarning });
+    await get()
+      .api?.post('/voice/state', { selfMuted: voice.selfMuted })
+      .catch(() => undefined);
   },
 
   toggleDeafen: async () => {
@@ -1004,6 +1012,7 @@ function registerRealtimeHandlers(): void {
       selfMuted: voice.selfMuted,
       selfDeafened: voice.selfDeafened,
       voiceError: voice.error,
+      micWarning: voice.micWarning,
       // A conexão pode cair sozinha; o estado precisa refletir isso.
       voiceChannelId: voice.channelId,
     });
