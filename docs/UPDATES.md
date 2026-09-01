@@ -19,19 +19,21 @@ em silêncio e o app continua funcionando normalmente.
 
 ## Preparar o servidor (uma vez)
 
+> **Onde rodar:** estes comandos são do **servidor**, dentro da sessão SSH
+> (Bitvise, terminal do Ubuntu). Não são do PowerShell do Windows — lá o `&&`
+> nem é aceito, e `mkdir /opt/...` cria uma pasta `C:\opt` no seu próprio PC.
+> Você sabe que está no lugar certo quando o prompt é `root@servidor:...#`.
+
 O feed é uma pasta servida pelo Caddy, só de leitura:
 
 ```bash
 mkdir -p /opt/nexus/updates
+echo "UPDATES_DIR=/opt/nexus/updates" >> /opt/nexus/.env
+cd /opt/nexus
+./scripts/deploy.sh
 ```
 
-E no `.env` do servidor:
-
-```
-UPDATES_DIR=/opt/nexus/updates
-```
-
-Depois, `./scripts/deploy.sh`. Confira que a pasta responde:
+Confira que a pasta responde:
 
 ```bash
 curl -sI https://SEU_ENDERECO/updates/ | head -1
@@ -42,10 +44,13 @@ curl -sI https://SEU_ENDERECO/updates/ | head -1
 O endereço do feed **é gravado dentro do executável** no momento em que ele é
 gerado. Por isso `NEXUS_UPDATE_URL` precisa estar definido na hora de gerar:
 
-```bash
-# no computador que gera o instalador
-export NEXUS_UPDATE_URL=https://SEU_ENDERECO/updates
-cd apps/desktop && pnpm release:windows
+No **seu PC** (é aqui que o instalador é gerado). No PowerShell, `export` não
+existe e `&&` não separa comandos — use uma linha por vez:
+
+```powershell
+$env:NEXUS_UPDATE_URL = "https://SEU_ENDERECO/updates"
+cd apps\desktop
+pnpm release:windows
 ```
 
 Suba a versão em `apps/desktop/package.json` antes de gerar — o
@@ -53,6 +58,8 @@ electron-updater compara números de versão, não datas nem hashes. Sem subir o
 número, ninguém recebe nada.
 
 Depois publique:
+
+Ainda no seu PC, mas pelo **Git Bash** (o script é bash e usa `scp`):
 
 ```bash
 NEXUS_SERVER=root@100.x.y.z ./scripts/publish-update.sh
