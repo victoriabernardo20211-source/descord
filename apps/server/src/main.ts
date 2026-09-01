@@ -37,6 +37,9 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: false,
+    // O webhook do LiveKit é autenticado por assinatura do corpo cru; sem isto
+    // o Express já teria feito o parse e a verificação falharia.
+    rawBody: true,
   });
   const config = app.get<AppConfig>(CONFIG);
   const logger = new Logger('Bootstrap');

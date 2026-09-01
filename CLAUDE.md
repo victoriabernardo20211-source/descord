@@ -70,14 +70,18 @@ TEST_DATABASE_URL=postgresql://nexus:nexus@localhost:5432/nexus_test pnpm --filt
   canais, chat em tempo real, DMs com expiração de 8h, uploads, permissões, notificações.
 - **Fase 1.5 pronta:** E2EE das DMs e grupos privados, **incluindo os anexos**
   (AES-256-GCM no cliente, chave dentro do envelope Megolm).
-- **Em andamento:** primeiro deploy numa VPS em São Paulo (Ubuntu 26.04, Docker).
+- **Fases 2 e 3 escritas:** voz e tela com LiveKit — código completo e com testes de
+  permissão/token, mas **nunca exercitado com áudio ou vídeo reais**. Roteiro de
+  validação em `docs/VOICE.md`. Não diga que funciona antes desse roteiro passar.
+- **Deploy feito:** VPS em São Paulo, acesso por Tailscale, health check verde.
 - **Próximas fases** em `docs/ROADMAP.md`: voz/LiveKit, tela, polish, instalador.
 
 ### Pendências conhecidas
 
 - Verificação de contato (número de segurança) existe no backend, falta a tela.
-- Voz, vídeo e compartilhamento de tela não existem ainda. Os canais de voz aparecem
-  desabilitados na UI, com tooltip — **não finja que funcionam**.
+- Voz e tela estão implementadas mas **não validadas com mídia real**. Enquanto o
+  roteiro de `docs/VOICE.md` não passar, trate como não comprovado.
+- Chamadas privadas (DM) têm token no backend, mas ainda não têm interface.
 
 ## Como trabalhar aqui
 

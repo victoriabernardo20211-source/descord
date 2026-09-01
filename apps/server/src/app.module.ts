@@ -19,6 +19,7 @@ import { ChannelsModule } from './channels/channels.module';
 import { MessagesModule } from './messages/messages.module';
 import { DirectMessagesModule } from './direct-messages/direct-messages.module';
 import { E2eeModule } from './e2ee/e2ee.module';
+import { VoiceModule } from './voice/voice.module';
 import { FilesModule } from './files/files.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { HealthModule } from './health/health.module';
@@ -47,6 +48,7 @@ import { AllExceptionsFilter } from './common/http-exception.filter';
     MessagesModule,
     DirectMessagesModule,
     E2eeModule,
+    VoiceModule,
     HealthModule,
   ],
   providers: [

@@ -15,6 +15,20 @@ const api = {
     ipcRenderer.invoke('notify', { title, body }),
   setBadge: (count: number): Promise<boolean> => ipcRenderer.invoke('badge:set', count),
 
+  /** Fontes de compartilhamento de tela, com miniatura. */
+  screenSources: (): Promise<ScreenSource[]> => ipcRenderer.invoke('screen:sources'),
+
+  /** Registra (ou limpa) o atalho global de push-to-talk. */
+  setPushToTalk: (accelerator: string | null): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('ptt:set', accelerator),
+
+  /** Avisa o renderer que a tecla de push-to-talk foi acionada. */
+  onPushToTalk: (handler: () => void): (() => void) => {
+    const listener = (): void => handler();
+    ipcRenderer.on('ptt:pressed', listener);
+    return () => ipcRenderer.removeListener('ptt:pressed', listener);
+  },
+
   /**
    * Criptografia ponta a ponta. As chaves privadas vivem no processo principal
    * e nunca são expostas aqui — o renderer só manda texto para cifrar e recebe
@@ -49,6 +63,16 @@ const api = {
     reset: (): Promise<{ ok: true }> => ipcRenderer.invoke('e2ee:reset'),
   },
 };
+
+export interface ScreenSource {
+  id: string;
+  name: string;
+  kind: 'screen' | 'window';
+  thumbnail: string;
+  appIcon: string | null;
+  width: number | null;
+  height: number | null;
+}
 
 export interface E2eeIdentity {
   deviceId: string;

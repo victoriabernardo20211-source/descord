@@ -43,6 +43,9 @@ const fallback: NexusBridge = {
     return false;
   },
   setBadge: async () => false,
+  screenSources: async () => [],
+  setPushToTalk: async () => ({ ok: false }),
+  onPushToTalk: () => () => undefined,
 
   /**
    * Sem processo principal do Electron não há como guardar chave privada com

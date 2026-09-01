@@ -6,9 +6,9 @@ Cada fase só é considerada pronta quando `lint`, `typecheck`, `test` e `build`
 |---|---|---|
 | 1 | monorepo, auth, amigos, servidores, categorias, canais, chat, WebSocket, DMs com expiração de 8h, uploads, permissões, notificações | **pronta** |
 | 1.5 | criptografia ponta a ponta das DMs e grupos privados (Olm/Megolm) | **pronta** |
-| 2 | voz (LiveKit), mic, mute/deafen, PTT, volume por usuário, chamadas privadas, **chamar atenção / vibrar tela** | próxima |
-| 3 | compartilhamento de tela, resolução/FPS, áudio da tela, múltiplos streams, fullscreen/popout | planejada |
-| 4 | busca na UI, pins na UI, cargos na UI, status/atividade, tray, atalhos, autostart | planejada |
+| 2 | voz (LiveKit), mic, mute/deafen, PTT, volume por usuário, moderação | **código pronto, falta teste com áudio real** |
+| 3 | compartilhamento de tela, resolução/FPS, áudio da tela, múltiplos streams, destaque/tela cheia | **código pronto, falta teste com tela real** |
+| 4 | chamar atenção ("zumbido"), chamadas privadas na UI, busca, pins, cargos, status, tray, atalhos | planejada |
 | 5 | instalador assinado, auto-update, deploy, backups automatizados, hardening final | parcial |
 
 ---

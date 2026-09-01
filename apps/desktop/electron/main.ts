@@ -1,4 +1,13 @@
-import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  desktopCapturer,
+  globalShortcut,
+  ipcMain,
+  Notification,
+  screen,
+  shell,
+} from 'electron';
 import { join } from 'node:path';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { cryptoService } from './crypto/crypto-service';
@@ -208,6 +217,74 @@ ipcMain.handle('e2ee:reset', async () => {
   await cryptoService.reset();
   return { ok: true };
 });
+
+// ── Compartilhamento de tela ───────────────────────────────────────────────
+
+/**
+ * Lista o que pode ser compartilhado, com miniatura de cada fonte. É a razão
+ * principal de o projeto usar Electron: o navegador não entrega essa lista, só
+ * o seletor nativo dele.
+ */
+ipcMain.handle('screen:sources', async () => {
+  const displays = screen.getAllDisplays();
+  const sources = await desktopCapturer.getSources({
+    types: ['screen', 'window'],
+    thumbnailSize: { width: 320, height: 180 },
+    fetchWindowIcons: true,
+  });
+
+  return sources
+    // Não faz sentido oferecer a própria janela do Nexus como fonte.
+    .filter((source) => !source.name.startsWith('Nexus'))
+    .map((source) => {
+      const display = displays.find((d) => String(d.id) === source.display_id);
+      return {
+        id: source.id,
+        name: source.name,
+        kind: source.id.startsWith('screen:') ? ('screen' as const) : ('window' as const),
+        thumbnail: source.thumbnail.toDataURL(),
+        appIcon: source.appIcon?.toDataURL() ?? null,
+        // Resolução real do monitor: limita as opções de qualidade ao possível.
+        width: display?.size.width ?? null,
+        height: display?.size.height ?? null,
+      };
+    });
+});
+
+// ── Push-to-talk ───────────────────────────────────────────────────────────
+
+let pushToTalkKey: string | null = null;
+
+/**
+ * Atalho global: funciona com o Nexus minimizado, que é o ponto do PTT.
+ * O Electron não expõe "tecla solta" em atalho global, então tratamos o
+ * disparo como "abrir o microfone" e o renderer fecha sozinho depois de um
+ * tempo curto sem novos disparos.
+ */
+function registerPushToTalk(accelerator: string | null): boolean {
+  if (pushToTalkKey) {
+    globalShortcut.unregister(pushToTalkKey);
+    pushToTalkKey = null;
+  }
+  if (!accelerator) return true;
+
+  try {
+    const ok = globalShortcut.register(accelerator, () => {
+      mainWindow?.webContents.send('ptt:pressed');
+    });
+    if (ok) pushToTalkKey = accelerator;
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+ipcMain.handle('ptt:set', (_event, accelerator: unknown) => {
+  if (accelerator !== null && typeof accelerator !== 'string') return { ok: false };
+  return { ok: registerPushToTalk(accelerator) };
+});
+
+app.on('will-quit', () => globalShortcut.unregisterAll());
 
 ipcMain.handle('badge:set', (_event, count: unknown) => {
   if (typeof count !== 'number') return false;

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { DirectMessage, Message, PresenceState, PublicUser } from '@nexus/shared';
 import { ApiClient } from '../lib/api';
 import { E2eeManager } from '../lib/e2ee';
+import { voice, type StreamQuality, type VoicePeer } from '../lib/voice';
 import { dmPayloadSchema, type DmPayload, type EncryptedFile } from '@nexus/shared';
 import { realtime, type ConnectionStatus } from '../lib/socket';
 import { bridge } from '../lib/bridge';
@@ -106,6 +107,20 @@ interface AppState {
     blocked: PublicUser[];
   };
 
+  /** Quem está em cada canal de voz, vindo do servidor. */
+  voiceState: Record<string, { userId: string; selfMuted: boolean; selfDeafened: boolean; serverMuted: boolean; streaming: boolean }[]>;
+  /** Estado ao vivo da MINHA conexão de voz (LiveKit). */
+  voicePeers: VoicePeer[];
+  voiceChannelId: string | null;
+  voiceConnecting: boolean;
+  voiceError: string | null;
+  selfMuted: boolean;
+  selfDeafened: boolean;
+  streaming: boolean;
+  voiceAvailable: boolean;
+  /** Stream em destaque na visualização. */
+  watchingUserId: string | null;
+
   messages: Record<string, Message[]>;
   directMessages: Record<string, DecryptedDirectMessage[]>;
   pending: Record<string, PendingMessage[]>;
@@ -136,6 +151,16 @@ interface AppState {
   deleteMessage: (messageId: string) => Promise<void>;
   notifyTyping: () => void;
 
+  joinVoice: (channelId: string) => Promise<void>;
+  leaveVoice: () => Promise<void>;
+  toggleMute: () => Promise<void>;
+  toggleDeafen: () => Promise<void>;
+  setUserVolume: (userId: string, volume: number) => void;
+  startScreenShare: (sourceId: string, quality: StreamQuality, withAudio: boolean) => Promise<void>;
+  stopScreenShare: () => Promise<void>;
+  watchStream: (userId: string | null) => void;
+  moderateVoice: (userId: string, action: 'mute' | 'unmute' | 'deafen' | 'undeafen' | 'disconnect') => Promise<void>;
+
   createServer: (name: string) => Promise<void>;
   joinServer: (code: string) => Promise<void>;
   addFriend: (username: string) => Promise<string>;
@@ -162,6 +187,16 @@ export const useApp = create<AppState>((set, get) => ({
   conversations: [],
   presences: {},
   friends: { friends: [], incoming: [], outgoing: [], blocked: [] },
+  voiceState: {},
+  voicePeers: [],
+  voiceChannelId: null,
+  voiceConnecting: false,
+  voiceError: null,
+  selfMuted: false,
+  selfDeafened: false,
+  streaming: false,
+  voiceAvailable: false,
+  watchingUserId: null,
   messages: {},
   directMessages: {},
   pending: {},
@@ -270,6 +305,10 @@ export const useApp = create<AppState>((set, get) => ({
     const api = get().api;
     if (!api) return;
     const detail = await api.get<ServerDetail>(`/servers/${serverId}`);
+    const voiceState = await api
+      .get<AppState['voiceState']>(`/voice/servers/${serverId}`)
+      .catch(() => ({}));
+    set((state) => ({ voiceState: { ...state.voiceState, ...voiceState } }));
     const firstText = detail.channels.find((c) => c.type === 'TEXT');
     set({ serverDetail: detail, view: { kind: 'server', serverId } });
     if (firstText) await get().openChannel(firstText.id);
@@ -433,6 +472,122 @@ export const useApp = create<AppState>((set, get) => ({
     if (activeChannelId) realtime.emit('typing.start', { channelId: activeChannelId });
   },
 
+  joinVoice: async (channelId) => {
+    const { api, me } = get();
+    if (!api || !me) return;
+    set({ voiceConnecting: true, voiceError: null });
+
+    try {
+      const ticket = await api.post<{
+        token: string;
+        url: string;
+        canSpeak: boolean;
+        canStream: boolean;
+      }>(`/voice/channels/${channelId}/token`);
+
+      const settings = await api.get<{
+        settings: {
+          inputDeviceId: string | null;
+          noiseSuppression: boolean;
+          echoCancellation: boolean;
+          autoGainControl: boolean;
+          inputMode: string;
+        } | null;
+      }>('/users/me');
+      const s = settings.settings;
+
+      await voice.connect({
+        url: ticket.url,
+        token: ticket.token,
+        channelId,
+        inputDeviceId: s?.inputDeviceId ?? null,
+        noiseSuppression: s?.noiseSuppression ?? true,
+        echoCancellation: s?.echoCancellation ?? true,
+        autoGainControl: s?.autoGainControl ?? true,
+        pushToTalk: s?.inputMode === 'PUSH_TO_TALK',
+      });
+
+      if (voice.error) {
+        set({ voiceError: voice.error, voiceConnecting: false });
+        return;
+      }
+
+      // O servidor mantém a lista de quem está na sala e avisa os outros.
+      const participants = await api.post<AppState['voiceState'][string]>(
+        `/voice/channels/${channelId}/join`,
+      );
+      set({
+        voiceChannelId: channelId,
+        voiceConnecting: false,
+        selfMuted: voice.selfMuted,
+        voiceState: { ...get().voiceState, [channelId]: participants },
+      });
+    } catch (err) {
+      set({
+        voiceConnecting: false,
+        voiceError: err instanceof Error ? err.message : 'Não foi possível entrar na voz.',
+      });
+    }
+  },
+
+  leaveVoice: async () => {
+    const { api, voiceChannelId } = get();
+    await voice.disconnect();
+    if (api && voiceChannelId) {
+      await api.post(`/voice/channels/${voiceChannelId}/leave`).catch(() => undefined);
+    }
+    set({
+      voiceChannelId: null,
+      voicePeers: [],
+      streaming: false,
+      watchingUserId: null,
+      selfMuted: false,
+      selfDeafened: false,
+    });
+  },
+
+  toggleMute: async () => {
+    const next = !get().selfMuted;
+    await voice.setMuted(next);
+    set({ selfMuted: next });
+    await get().api?.post('/voice/state', { selfMuted: next }).catch(() => undefined);
+  },
+
+  toggleDeafen: async () => {
+    const next = !get().selfDeafened;
+    await voice.setDeafened(next);
+    set({ selfDeafened: next, selfMuted: next ? true : get().selfMuted });
+    await get()
+      .api?.post('/voice/state', { selfDeafened: next, selfMuted: next ? true : undefined })
+      .catch(() => undefined);
+  },
+
+  setUserVolume: (userId, volume) => {
+    // Preferência puramente local: não vai para o servidor.
+    voice.setVolume(userId, volume);
+    set({ voicePeers: [...voice.peers] });
+  },
+
+  startScreenShare: async (sourceId, quality, withAudio) => {
+    await voice.startScreenShare(sourceId, quality, withAudio);
+    set({ streaming: voice.streaming, voiceError: voice.error });
+    if (voice.streaming) {
+      await get().api?.post('/voice/state', { streaming: true }).catch(() => undefined);
+    }
+  },
+
+  stopScreenShare: async () => {
+    await voice.stopScreenShare();
+    set({ streaming: false });
+    await get().api?.post('/voice/state', { streaming: false }).catch(() => undefined);
+  },
+
+  watchStream: (userId) => set({ watchingUserId: userId }),
+
+  moderateVoice: async (userId, action) => {
+    await get().api?.post(`/voice/members/${userId}/moderate`, { action });
+  },
+
   createServer: async (name) => {
     const api = get().api;
     if (!api) return;
@@ -520,6 +675,13 @@ async function afterLogin(
       });
     }
   }
+
+  // A voz pode não estar configurada neste servidor; a UI precisa saber para
+  // desabilitar os canais em vez de deixar o usuário clicar e nada acontecer.
+  const voiceStatus = await api
+    .get<{ configured: boolean }>('/voice/status')
+    .catch(() => ({ configured: false }));
+  set({ voiceAvailable: voiceStatus.configured });
 
   if (api.token) realtime.connect(api.baseUrl, api.token);
   registerRealtimeHandlers();
@@ -746,6 +908,46 @@ function registerRealtimeHandlers(): void {
   realtime.on('reaction.removed', ({ messageId, channelId, emoji, userId }) =>
     applyReaction(messageId, channelId, emoji, userId, false),
   );
+
+  // Estado ao vivo da conexão local (falando, mudo, transmitindo).
+  voice.onChange(() => {
+    useApp.setState({
+      voicePeers: [...voice.peers],
+      streaming: voice.streaming,
+      selfMuted: voice.selfMuted,
+      selfDeafened: voice.selfDeafened,
+      voiceError: voice.error,
+      // A conexão pode cair sozinha; o estado precisa refletir isso.
+      voiceChannelId: voice.channelId,
+    });
+  });
+
+  // Push-to-talk: o atalho global funciona com o app minimizado.
+  bridge.onPushToTalk(() => {
+    if (voice.connected) void voice.pushToTalkPulse();
+  });
+
+  const applyVoiceState = (channelId: string): void => {
+    const api = useApp.getState().api;
+    if (!api) return;
+    void api
+      .get<AppState['voiceState'][string]>(`/voice/channels/${channelId}`)
+      .then((participants) =>
+        useApp.setState((state) => ({
+          voiceState: { ...state.voiceState, [channelId]: participants },
+        })),
+      )
+      .catch(() => undefined);
+  };
+
+  realtime.on('voice.joined', ({ channelId }) => applyVoiceState(channelId));
+  realtime.on('voice.left', ({ channelId }) => applyVoiceState(channelId));
+  realtime.on('stream.started', ({ channelId }) => applyVoiceState(channelId));
+  realtime.on('stream.ended', ({ channelId, userId }) => {
+    applyVoiceState(channelId);
+    // Se eu estava assistindo justamente essa transmissão, fecho a visualização.
+    if (useApp.getState().watchingUserId === userId) useApp.setState({ watchingUserId: null });
+  });
 
   realtime.on('friend.requested', () => void useApp.getState().refreshFriends());
   realtime.on('friend.accepted', () => void useApp.getState().refreshFriends());

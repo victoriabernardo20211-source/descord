@@ -22,14 +22,15 @@ sem terceiros no meio.
 |---|---|---|
 | **1** | Monorepo, auth, amigos, servidores, categorias, canais, chat, WebSocket, DMs com expiração de 8h, uploads, permissões, notificações | **Implementada** |
 | **1.5** | **Criptografia ponta a ponta** das DMs e grupos privados (Olm/Megolm), diretório de chaves, verificação por número de segurança | **Implementada** |
-| 2 | Canais de voz, LiveKit, microfone, mute/deafen, PTT, volume por usuário, chamadas privadas, chamar atenção/vibrar tela | Planejada |
+| **2** | Canais de voz (LiveKit), microfone, mute/deafen, PTT global, volume por usuário, moderação | **Implementada — falta validar com áudio real** |
 | 3 | Compartilhamento de tela, resolução/FPS, áudio da tela, múltiplos streams | Planejada |
 | 4 | Busca avançada, pins na UI, roles na UI, status/atividade, tray, atalhos, autostart | Parcial (backend pronto) |
 | 5 | Instalador Windows, deploy, backups, auto-update, testes completos | Parcial (instalador e scripts prontos) |
 
-O que **ainda não existe**: voz, vídeo, compartilhamento de tela e a integração com o LiveKit.
-O banco, as permissões (`CONNECT`, `SPEAK`, `STREAM`) e o Docker Compose já estão preparados
-para receber essa camada sem reescrita.
+Voz e compartilhamento de tela estão **escritos e com testes de permissão**, mas **nunca
+foram exercitados com microfone e tela de verdade** — isso exige duas pessoas e hardware.
+O roteiro de validação está em [`docs/VOICE.md`](docs/VOICE.md); até ele passar, trate
+esses recursos como não comprovados.
 
 ---
 
@@ -231,6 +232,7 @@ com todas as letras em [`docs/E2EE.md`](docs/E2EE.md).
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | diagramas, fluxos, modelo de dados |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | auth, permissões, uploads, DMs, limitações |
 | [`docs/E2EE.md`](docs/E2EE.md) | criptografia ponta a ponta: protocolo, chaves, metadados |
+| [`docs/VOICE.md`](docs/VOICE.md) | voz e tela: configuração do LiveKit e roteiro de teste manual |
 | [`docs/SERVER_SETUP.md`](docs/SERVER_SETUP.md) | instalação na VPS, passo a passo |
 | [`docs/WINDOWS_CLIENT.md`](docs/WINDOWS_CLIENT.md) | build, instalador, logs do cliente |
 | [`docs/HOSTING.md`](docs/HOSTING.md) | onde hospedar: por que Vercel não serve, alternativas |

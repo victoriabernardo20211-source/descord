@@ -5,6 +5,8 @@ import { Avatar } from '../components/Avatar';
 import { Composer } from '../components/Composer';
 import { MessageList } from '../components/MessageList';
 import { TypingIndicator } from '../components/TypingIndicator';
+import { ScreenSharePicker } from '../components/ScreenSharePicker';
+import { StreamView } from '../components/StreamView';
 import { useApp } from '../store/app';
 import { Logo } from './Connect';
 
@@ -191,6 +193,7 @@ function Sidebar(): JSX.Element {
         )}
       </div>
 
+      <VoicePanel />
       <UserPanel />
     </aside>
   );
@@ -211,21 +214,24 @@ function ChannelTree({
 }): JSX.Element {
   const uncategorized = detail.channels.filter((c) => !c.categoryId);
 
-  const channelButton = (channel: (typeof detail.channels)[number]): JSX.Element => (
-    <button
-      key={channel.id}
-      onClick={() => channel.type === 'TEXT' && onOpen(channel.id)}
-      title={channel.type === 'VOICE' ? 'Canais de voz chegam na Fase 2' : channel.topic ?? channel.name}
-      className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm transition-colors ${
-        activeChannelId === channel.id
-          ? 'bg-ink-700 text-mist-50'
-          : 'text-mist-400 hover:bg-ink-800 hover:text-mist-200'
-      } ${channel.type === 'VOICE' ? 'opacity-60' : ''}`}
-    >
-      <span className="text-mist-400">{channel.type === 'TEXT' ? '#' : '🔊'}</span>
-      <span className="truncate">{channel.name}</span>
-    </button>
-  );
+  const channelButton = (channel: (typeof detail.channels)[number]): JSX.Element => {
+    if (channel.type === 'VOICE') return <VoiceChannel key={channel.id} channel={channel} />;
+    return (
+      <button
+        key={channel.id}
+        onClick={() => onOpen(channel.id)}
+        title={channel.topic ?? channel.name}
+        className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm transition-colors ${
+          activeChannelId === channel.id
+            ? 'bg-ink-700 text-mist-50'
+            : 'text-mist-400 hover:bg-ink-800 hover:text-mist-200'
+        }`}
+      >
+        <span className="text-mist-400">#</span>
+        <span className="truncate">{channel.name}</span>
+      </button>
+    );
+  };
 
   return (
     <>
@@ -251,18 +257,162 @@ function ChannelTree({
   );
 }
 
+/** Um canal de voz na barra lateral, com quem está dentro. */
+function VoiceChannel({
+  channel,
+}: {
+  channel: { id: string; name: string };
+}): JSX.Element {
+  const voiceState = useApp((s) => s.voiceState[channel.id] ?? []);
+  const voiceAvailable = useApp((s) => s.voiceAvailable);
+  const voiceChannelId = useApp((s) => s.voiceChannelId);
+  const connecting = useApp((s) => s.voiceConnecting);
+  const joinVoice = useApp((s) => s.joinVoice);
+  const members = useApp((s) => s.serverDetail?.members);
+  const active = voiceChannelId === channel.id;
+
+  const nameOf = (userId: string): string =>
+    members?.find((m) => m.userId === userId)?.user.displayName ?? 'alguém';
+
+  return (
+    <div>
+      <button
+        onClick={() => voiceAvailable && !active && void joinVoice(channel.id)}
+        disabled={!voiceAvailable || connecting}
+        title={
+          voiceAvailable
+            ? `Entrar em ${channel.name}`
+            : 'A voz não está configurada neste servidor'
+        }
+        className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm transition-colors ${
+          active ? 'bg-ink-700 text-mist-50' : 'text-mist-400 hover:bg-ink-800 hover:text-mist-200'
+        } ${!voiceAvailable ? 'opacity-50' : ''}`}
+      >
+        <span>🔊</span>
+        <span className="truncate">{channel.name}</span>
+      </button>
+
+      {voiceState.map((participant) => (
+        <div
+          key={participant.userId}
+          className="ml-5 flex items-center gap-1.5 rounded px-2 py-0.5 text-xs text-mist-400"
+        >
+          <Avatar name={nameOf(participant.userId)} size={18} />
+          <span className="truncate">{nameOf(participant.userId)}</span>
+          {(participant.selfMuted || participant.serverMuted) && <span title="Sem microfone">🔇</span>}
+          {participant.streaming && (
+            <span className="rounded bg-alert-500 px-1 text-[9px] font-semibold text-white">
+              AO VIVO
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Barra de voz conectada: o que aparece quando você está numa sala. */
+function VoicePanel(): JSX.Element | null {
+  const voiceChannelId = useApp((s) => s.voiceChannelId);
+  const detail = useApp((s) => s.serverDetail);
+  const streaming = useApp((s) => s.streaming);
+  const error = useApp((s) => s.voiceError);
+  const leaveVoice = useApp((s) => s.leaveVoice);
+  const stopScreenShare = useApp((s) => s.stopScreenShare);
+  const startScreenShare = useApp((s) => s.startScreenShare);
+  const [picking, setPicking] = useState(false);
+
+  if (!voiceChannelId) return null;
+  const channel = detail?.channels.find((c) => c.id === voiceChannelId);
+
+  return (
+    <>
+      <div className="border-t border-ink-950/60 bg-ink-900 px-3 py-2">
+        <div className="flex items-center justify-between">
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium text-signal-500">Voz conectada</p>
+            <p className="truncate text-[11px] text-mist-400">
+              {channel?.name ?? 'Canal de voz'}
+            </p>
+          </div>
+          <button
+            onClick={() => void leaveVoice()}
+            title="Desconectar"
+            aria-label="Desconectar da voz"
+            className="rounded p-1.5 text-mist-400 hover:bg-ink-700 hover:text-alert-500"
+          >
+            ⏏
+          </button>
+        </div>
+
+        {error && <p className="mt-1 text-[11px] text-alert-500">{error}</p>}
+
+        <button
+          onClick={() => (streaming ? void stopScreenShare() : setPicking(true))}
+          className={`mt-2 w-full rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+            streaming
+              ? 'bg-alert-500 text-white hover:bg-alert-500/80'
+              : 'bg-ink-700 text-mist-200 hover:bg-ink-600'
+          }`}
+        >
+          {streaming ? 'Parar transmissão' : 'Compartilhar tela'}
+        </button>
+      </div>
+
+      {picking && (
+        <ScreenSharePicker
+          onCancel={() => setPicking(false)}
+          onShare={(sourceId, quality, withAudio) => {
+            setPicking(false);
+            void startScreenShare(sourceId, quality, withAudio);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 function UserPanel(): JSX.Element {
   const me = useApp((s) => s.me);
   const logout = useApp((s) => s.logout);
+  const selfMuted = useApp((s) => s.selfMuted);
+  const selfDeafened = useApp((s) => s.selfDeafened);
+  const inVoice = useApp((s) => s.voiceChannelId !== null);
+  const toggleMute = useApp((s) => s.toggleMute);
+  const toggleDeafen = useApp((s) => s.toggleDeafen);
   if (!me) return <div />;
 
   return (
-    <div className="flex items-center gap-2 border-t border-ink-950/60 bg-ink-900 px-2 py-2">
+    <div className="flex items-center gap-1 border-t border-ink-950/60 bg-ink-900 px-2 py-2">
       <Avatar name={me.displayName} url={me.avatarUrl} size={32} status="ONLINE" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{me.displayName}</p>
         <p className="truncate text-[11px] text-mist-400">@{me.username}</p>
       </div>
+      {inVoice && (
+        <>
+          <button
+            onClick={() => void toggleMute()}
+            title={selfMuted ? 'Ativar microfone' : 'Silenciar microfone'}
+            aria-label={selfMuted ? 'Ativar microfone' : 'Silenciar microfone'}
+            className={`rounded p-1.5 transition-colors hover:bg-ink-700 ${
+              selfMuted ? 'text-alert-500' : 'text-mist-400 hover:text-mist-50'
+            }`}
+          >
+            {selfMuted ? '🔇' : '🎙'}
+          </button>
+          <button
+            onClick={() => void toggleDeafen()}
+            title={selfDeafened ? 'Voltar a ouvir' : 'Ensurdecer'}
+            aria-label={selfDeafened ? 'Voltar a ouvir' : 'Ensurdecer'}
+            className={`rounded p-1.5 transition-colors hover:bg-ink-700 ${
+              selfDeafened ? 'text-alert-500' : 'text-mist-400 hover:text-mist-50'
+            }`}
+          >
+            {selfDeafened ? '🔕' : '🎧'}
+          </button>
+        </>
+      )}
       <button
         onClick={() => void logout()}
         title="Sair"
@@ -334,6 +484,8 @@ function ChatView(): JSX.Element {
       </header>
 
       {isDm && <PrivacyBanner />}
+
+      <StreamView />
 
       <MessageList
         messages={list}
