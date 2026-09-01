@@ -3,8 +3,22 @@
 Lista completa do que precisa existir visualmente. Serve para o desenho não esquecer os
 **estados** — que é onde a maioria dos redesenhos falha, porque só a tela "feliz" é desenhada.
 
-Os tokens de cor atuais estão em `apps/desktop/src/styles/global.css`. Trocar a identidade
-é trocar esses tokens; a interface inteira acompanha sem mexer em componente.
+Os tokens de cor estão em `apps/desktop/src/styles/global.css` e vieram do canvas do
+Claude Design. Trocar a identidade é trocar esses tokens; a interface inteira acompanha
+sem mexer em componente.
+
+## Sistema visual aplicado
+
+| | |
+|---|---|
+| Fonte | **Geist** (self-hospedada — a CSP do app bloqueia fonte externa), base **13px** |
+| Fundos | `#0a0b0d` rail · `#101114` chat · `#15171b` sidebar · `#1a1d22` elevado |
+| Bordas | `#23262d` · `#2a2d34` no hover |
+| Texto | `#f2f3f5` · `#c6cad1` · `#8a8f98` secundário |
+| Destaque | `#7b5cff`, com `#b8a6ff` claro e `#2b2350` para fundo tingido |
+| Semânticas | `#35d07f` online · `#ffb224` ausente · `#e5484d` alerta |
+| Raios | 6px predominante; 8–12px em cartões e modais |
+| Densidade | rail 60px · sidebar 258px · cabeçalho 46px · linha de canal 30px · campo 38px |
 
 ## Regras que o desenho precisa respeitar
 

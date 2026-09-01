@@ -1,23 +1,52 @@
 @import 'tailwindcss';
 
-/* Identidade própria do Nexus: azul-noite frio com um roxo elétrico de destaque. */
+/**
+ * Paleta do Nexus, extraída do design.
+ *
+ * Escala de fundo do mais profundo (rail) ao mais elevado (menus), com bordas
+ * separando os planos. Roxo é a única cor de destaque; verde, vermelho e âmbar
+ * são semânticos e não competem com ele.
+ */
 @theme {
-  --color-ink-950: #0b0d12;
-  --color-ink-900: #0f1116;
-  --color-ink-850: #14171f;
-  --color-ink-800: #1a1e27;
-  --color-ink-700: #232834;
-  --color-ink-600: #2e3543;
-  --color-ink-500: #3c4455;
-  --color-mist-400: #8b93a7;
-  --color-mist-200: #c3c9d6;
-  --color-mist-50: #eef1f7;
-  --color-pulse-500: #6f5cf0;
-  --color-pulse-400: #8b7bff;
-  --color-pulse-300: #a99cff;
-  --color-signal-500: #2fbf71;
-  --color-warn-500: #e0a33a;
-  --color-alert-500: #e05a5a;
+  /* Fundos */
+  --color-ink-950: #0a0b0d;
+  --color-ink-900: #101114;
+  --color-ink-850: #15171b;
+  --color-ink-800: #1a1d22;
+  --color-ink-700: #23262d;
+  --color-ink-600: #2a2d34;
+  --color-ink-500: #3a3e46;
+
+  /* Texto */
+  --color-mist-50: #f2f3f5;
+  --color-mist-200: #c6cad1;
+  --color-mist-300: #a8adb6;
+  --color-mist-400: #8a8f98;
+  --color-mist-500: #6b7079;
+
+  /* Destaque */
+  --color-pulse-600: #5b3be0;
+  --color-pulse-500: #7b5cff;
+  --color-pulse-400: #8d72ff;
+  --color-pulse-300: #b8a6ff;
+  /* Fundo tingido de roxo, para estado selecionado sem virar bloco sólido. */
+  --color-pulse-tint: #2b2350;
+
+  /* Semânticas */
+  --color-signal-500: #35d07f;
+  --color-signal-600: #1e8f63;
+  --color-warn-500: #ffb224;
+  --color-alert-500: #e5484d;
+  --color-alert-tint: #5c2b2e;
+
+  /* Densidade de app desktop, medida no design */
+  --spacing-rail: 60px;
+  --spacing-sidebar: 258px;
+  --spacing-header: 46px;
+  --spacing-row: 30px;
+  --spacing-field: 38px;
+
+  --font-sans: 'Geist Variable', 'Geist', 'Segoe UI', system-ui, sans-serif;
 }
 
 html,
@@ -30,9 +59,12 @@ body,
 body {
   background: var(--color-ink-900);
   color: var(--color-mist-50);
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-family: var(--font-sans);
+  /* 13px é a base do design — densidade de aplicativo, não de site. */
+  font-size: 13px;
+  line-height: 1.5;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 ::-webkit-scrollbar {
@@ -53,4 +85,17 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-pulse-400);
   outline-offset: 2px;
+}
+
+input:focus {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

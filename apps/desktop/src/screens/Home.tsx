@@ -50,12 +50,12 @@ function ServerRail(): JSX.Element {
   const joinServer = useApp((s) => s.joinServer);
 
   return (
-    <nav className="flex w-[72px] shrink-0 flex-col items-center gap-2 bg-ink-950 py-3">
+    <nav className="flex w-rail shrink-0 flex-col items-center gap-2 bg-ink-950 py-3">
       <button
         onClick={openFriends}
         title="Início"
         aria-label="Início"
-        className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all hover:rounded-xl ${
+        className={`flex h-11 w-11 items-center justify-center rounded-2xl transition-all hover:rounded-xl ${
           view.kind !== 'server' ? 'bg-pulse-500' : 'bg-ink-800 hover:bg-pulse-500'
         }`}
       >
@@ -81,7 +81,7 @@ function ServerRail(): JSX.Element {
               key={server.id}
               onClick={() => void openServer(server.id)}
               title={server.name}
-              className={`group relative flex h-12 w-12 items-center justify-center rounded-2xl font-semibold transition-all hover:rounded-xl ${
+              className={`group relative flex h-11 w-11 items-center justify-center rounded-2xl font-semibold transition-all hover:rounded-xl ${
                 active ? 'rounded-xl bg-pulse-500 text-white' : 'bg-ink-800 text-mist-200 hover:bg-pulse-500 hover:text-white'
               }`}
             >
@@ -114,7 +114,7 @@ function ServerRail(): JSX.Element {
         }}
         title="Adicionar servidor"
         aria-label="Adicionar servidor"
-        className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-800 text-xl text-signal-500 transition-all hover:rounded-xl hover:bg-signal-500 hover:text-white"
+        className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ink-800 text-xl text-signal-500 transition-all hover:rounded-xl hover:bg-signal-500 hover:text-white"
       >
         +
       </button>
@@ -136,8 +136,8 @@ function Sidebar(): JSX.Element {
   const isServer = view.kind === 'server' && detail;
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col bg-ink-850">
-      <header className="flex h-12 items-center border-b border-ink-950/60 px-4 shadow-sm">
+    <aside className="flex w-sidebar shrink-0 flex-col bg-ink-850">
+      <header className="flex h-header items-center border-b border-ink-950/60 px-4 shadow-sm">
         <h2 className="truncate font-semibold">{isServer ? detail.name : 'Mensagens'}</h2>
       </header>
 
@@ -221,7 +221,7 @@ function ChannelTree({
         key={channel.id}
         onClick={() => onOpen(channel.id)}
         title={channel.topic ?? channel.name}
-        className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm transition-colors ${
+        className={`flex h-row w-full items-center gap-1.5 rounded-md px-2 text-left transition-colors ${
           activeChannelId === channel.id
             ? 'bg-ink-700 text-mist-50'
             : 'text-mist-400 hover:bg-ink-800 hover:text-mist-200'
@@ -284,7 +284,7 @@ function VoiceChannel({
             ? `Entrar em ${channel.name}`
             : 'A voz não está configurada neste servidor'
         }
-        className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm transition-colors ${
+        className={`flex h-row w-full items-center gap-1.5 rounded-md px-2 text-left transition-colors ${
           active ? 'bg-ink-700 text-mist-50' : 'text-mist-400 hover:bg-ink-800 hover:text-mist-200'
         } ${!voiceAvailable ? 'opacity-50' : ''}`}
       >
@@ -472,7 +472,7 @@ function ChatView(): JSX.Element {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-ink-900">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-ink-950/60 px-4 shadow-sm">
+      <header className="flex h-header shrink-0 items-center gap-2 border-b border-ink-950/60 px-4 shadow-sm">
         <span className="text-mist-400">{isDm ? '@' : '#'}</span>
         <h2 className="truncate font-semibold">{title}</h2>
         {channel?.topic && (
@@ -591,7 +591,7 @@ function FriendsView(): JSX.Element {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-ink-900">
-      <header className="flex h-12 shrink-0 items-center gap-4 border-b border-ink-950/60 px-4 shadow-sm">
+      <header className="flex h-header shrink-0 items-center gap-4 border-b border-ink-950/60 px-4 shadow-sm">
         <h2 className="font-semibold">Amigos</h2>
         <nav className="flex gap-1">
           {(
