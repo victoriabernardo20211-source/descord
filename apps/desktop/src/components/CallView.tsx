@@ -126,7 +126,24 @@ function Tile({
       <span className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-[7px] bg-ink-975/70 px-2.5 py-1 text-[12.5px] font-semibold text-mist-200">
         {peer.displayName}
         {isSelf && <span className="font-normal text-mist-500">(você)</span>}
-        {peer.micMuted && <Icon name="mic-off" size={13} className="text-alert-500" />}
+        {peer.micAbsent ? (
+          <span
+            title={
+              isSelf
+                ? 'Seu microfone não está publicado — ninguém te ouve.'
+                : `${peer.displayName} não está publicando microfone nenhum. Não é mudo: o programa dele não abriu o microfone.`
+            }
+            className="text-[10px] font-bold tracking-[0.06em] text-warn-500"
+          >
+            SEM MICROFONE
+          </span>
+        ) : (
+          peer.micMuted && (
+            <span title="Microfone mudo">
+              <Icon name="mic-off" size={13} className="text-alert-500" />
+            </span>
+          )
+        )}
       </span>
 
       {peer.streaming && (

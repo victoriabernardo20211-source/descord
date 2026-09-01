@@ -21,6 +21,15 @@ export interface VoicePeer {
   displayName: string;
   speaking: boolean;
   micMuted: boolean;
+  /**
+   * Não existe faixa de microfone nenhuma — diferente de estar mudo.
+   *
+   * A distinção importa: mudo é escolha e some com um clique; sem faixa é
+   * defeito (permissão negada, cliente desatualizado, publicação recusada) e
+   * não adianta ninguém mexer no volume. Mostrar os dois como o mesmo cadeado
+   * custou várias rodadas de adivinhação.
+   */
+  micAbsent: boolean;
   streaming: boolean;
   /** Volume local, 0 a 200 — preferência de quem escuta, não do transmissor. */
   volume: number;
@@ -420,20 +429,20 @@ export class VoiceConnection {
       return;
     }
 
-    const describe = (participant: Participant, isSelf: boolean): VoicePeer => ({
-      userId: participant.identity,
-      displayName: participant.name || participant.identity,
-      speaking: participant.isSpeaking,
+    const describe = (participant: Participant, isSelf: boolean): VoicePeer => {
       // Para si mesma a verdade é a publicação, não a variável local: sem
-      // track publicada ninguém ouve, por mais que o botão pareça aberto.
-      micMuted: isSelf
-        ? !participant.getTrackPublication(Track.Source.Microphone) ||
-          Boolean(participant.getTrackPublication(Track.Source.Microphone)?.isMuted)
-        : !participant.getTrackPublication(Track.Source.Microphone)?.isSubscribed ||
-          Boolean(participant.getTrackPublication(Track.Source.Microphone)?.isMuted),
-      streaming: Boolean(participant.getTrackPublication(Track.Source.ScreenShare)),
-      volume: isSelf ? 100 : this.volumeFor(participant.identity),
-    });
+      // faixa publicada ninguém ouve, por mais que o botão pareça aberto.
+      const mic = participant.getTrackPublication(Track.Source.Microphone);
+      return {
+        userId: participant.identity,
+        displayName: participant.name || participant.identity,
+        speaking: participant.isSpeaking,
+        micAbsent: !mic,
+        micMuted: !mic || Boolean(mic.isMuted) || (!isSelf && !mic.isSubscribed),
+        streaming: Boolean(participant.getTrackPublication(Track.Source.ScreenShare)),
+        volume: isSelf ? 100 : this.volumeFor(participant.identity),
+      };
+    };
 
     this.peers = [
       describe(room.localParticipant as LocalParticipant, true),

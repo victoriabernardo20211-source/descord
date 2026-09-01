@@ -12,3 +12,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Hash curto do commit que gerou este bundle. */
+declare const __BUILD_ID__: string;

@@ -532,7 +532,10 @@ function UserPanel(): JSX.Element {
 
   return (
     <div className="flex h-user shrink-0 items-center gap-1 bg-ink-950 pl-2 pr-1.5">
-      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md p-1">
+      <div
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-md p-1"
+        title={`Nexus · build ${__BUILD_ID__}`}
+      >
         <Avatar name={me.displayName} url={me.avatarUrl} size={30} status="ONLINE" ringColor="#0a0b0d" />
         <div className="min-w-0">
           <p className="truncate text-[13px] font-semibold leading-tight text-mist-50">
