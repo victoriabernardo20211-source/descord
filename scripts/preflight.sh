@@ -97,12 +97,24 @@ fi
 
 if docker compose version >/dev/null 2>&1; then ok "Docker Compose disponível."; else red "Docker Compose não encontrado."; fi
 
-if command -v dig >/dev/null 2>&1 && [ -n "${NEXUS_DOMAIN:-}" ]; then
-  resolved=$(dig +short "$NEXUS_DOMAIN" | tail -1)
+host_only="${NEXUS_DOMAIN:-}"
+host_only="${host_only#http://}"
+host_only="${host_only#https://}"
+
+if [ -n "${BIND_ADDRESS:-}" ]; then
+  ok "Portas publicadas apenas em $BIND_ADDRESS (fora do alcance da internet)."
+else
+  warn "BIND_ADDRESS vazio: 80 e 443 ficam abertas para a internet. Porta publicada pelo Docker NÃO passa pelo ufw."
+fi
+
+# IP não se resolve por DNS; só faz sentido conferir nome.
+if command -v dig >/dev/null 2>&1 && [ -n "$host_only" ] &&
+   ! printf '%s' "$host_only" | grep -qE '^[0-9]+(\.[0-9]+){3}$'; then
+  resolved=$(dig +short "$host_only" | tail -1)
   if [ -z "$resolved" ]; then
-    warn "$NEXUS_DOMAIN não resolve ainda. O Caddy não conseguirá emitir o certificado."
+    warn "$host_only não resolve ainda. O Caddy não conseguirá emitir o certificado."
   else
-    ok "$NEXUS_DOMAIN resolve para $resolved"
+    ok "$host_only resolve para $resolved"
   fi
 fi
 

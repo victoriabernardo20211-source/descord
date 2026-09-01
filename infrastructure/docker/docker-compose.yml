@@ -67,9 +67,12 @@ services:
     restart: unless-stopped
     depends_on: [server]
     ports:
-      - '80:80'
-      - '443:443'
-      - '443:443/udp'
+      # ATENÇÃO: porta publicada pelo Docker NÃO passa pelo ufw — ele mexe no
+      # iptables direto. Fechar a porta no ufw dá falsa sensação de segurança.
+      # Para expor só na rede privada, defina BIND_ADDRESS com o IP do Tailscale.
+      - '${BIND_ADDRESS:-0.0.0.0}:80:80'
+      - '${BIND_ADDRESS:-0.0.0.0}:443:443'
+      - '${BIND_ADDRESS:-0.0.0.0}:443:443/udp'
     environment:
       NEXUS_DOMAIN: ${NEXUS_DOMAIN:-localhost}
       LIVEKIT_DOMAIN: ${LIVEKIT_DOMAIN:-livekit.localhost}
