@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { io, type Socket } from 'socket.io-client';
+import sharp from 'sharp';
 import { WS_EVENT } from '@nexus/shared';
 import {
   TEST_DM_TTL_MS,
@@ -105,11 +106,12 @@ describe('expiração de mensagens privadas (integração)', () => {
   });
 
   it('5. os anexos da mensagem são removidos junto', async () => {
-    const png = Buffer.from(
-      '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c6360000002000100' +
-        '05fe02fa0000000049454e44ae426082',
-      'hex',
-    );
+    // Gerado pelo sharp: um PNG escrito à mão sai com CRC inválido.
+    const png = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 90, g: 70, b: 240 } },
+    })
+      .png()
+      .toBuffer();
     const form = new FormData();
     form.append('file', new Blob([png], { type: 'image/png' }), 'ponto.png');
 

@@ -1,6 +1,5 @@
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { createId } from '@paralleldrive/cuid2';
-import { fileTypeFromBuffer } from 'file-type';
 import sharp from 'sharp';
 import { AppConfig, CONFIG } from '../config/configuration';
 import { StorageProvider } from '../storage/storage.provider';
@@ -13,6 +12,20 @@ export interface PreparedUpload {
   size: number;
   width: number | null;
   height: number | null;
+}
+
+/**
+ * O `file-type` é ESM puro e este pacote compila para CommonJS. Com
+ * `module: node16` o TypeScript preserva o `import()` dinâmico em vez de
+ * convertê-lo em `require`, que quebraria no start com
+ * ERR_PACKAGE_PATH_NOT_EXPORTED. O módulo é carregado uma vez e reaproveitado.
+ */
+type FileTypeModule = typeof import('file-type', { with: { 'resolution-mode': 'import' } });
+let fileTypeModule: FileTypeModule | null = null;
+
+async function detectMimeType(buffer: Buffer): Promise<string | undefined> {
+  fileTypeModule ??= await import('file-type');
+  return (await fileTypeModule.fileTypeFromBuffer(buffer))?.mime;
 }
 
 /** Tipos aceitos. Executáveis nunca entram. */
@@ -57,10 +70,10 @@ export class FilesService {
       });
     }
 
-    const sniffed = await fileTypeFromBuffer(file.buffer);
+    const sniffed = await detectMimeType(file.buffer);
     // text/plain e application/json não têm magic bytes; são aceitos pelo header declarado.
     const mimeType =
-      sniffed?.mime ??
+      sniffed ??
       (file.mimetype === 'text/plain' || file.mimetype === 'application/json'
         ? file.mimetype
         : 'application/octet-stream');
