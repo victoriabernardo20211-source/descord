@@ -36,6 +36,14 @@ const api = {
     return () => ipcRenderer.removeListener('ptt:pressed', listener);
   },
 
+  /** Uma atualização já foi baixada e entra na próxima abertura do app. */
+  onUpdateReady: (handler: (version: string) => void): (() => void) => {
+    const listener = (_event: unknown, payload: { version: string }): void =>
+      handler(payload.version);
+    ipcRenderer.on('update:ready', listener);
+    return () => ipcRenderer.removeListener('update:ready', listener);
+  },
+
   /**
    * Criptografia ponta a ponta. As chaves privadas vivem no processo principal
    * e nunca são expostas aqui — o renderer só manda texto para cifrar e recebe

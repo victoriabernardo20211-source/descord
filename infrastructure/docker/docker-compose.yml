@@ -119,6 +119,9 @@ services:
       LIVEKIT_DOMAIN: ${LIVEKIT_DOMAIN:-livekit.localhost}
     volumes:
       - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Instaladores publicados. Só de leitura para o Caddy: quem escreve aqui
+      # é o deploy, por SSH, não uma requisição.
+      - ${UPDATES_DIR:-./updates}:/srv/updates:ro
       - caddy-data:/data
       - caddy-config:/config
 

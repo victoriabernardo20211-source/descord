@@ -22,8 +22,11 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Nexus
-# Preparado para auto-update: basta apontar para um servidor/release quando quiser.
+# Feed de atualização servido pelo próprio servidor, atrás do Tailscale.
+# Defina NEXUS_UPDATE_URL antes de gerar o instalador — o endereço vai gravado
+# dentro do executável, e é dele que cada cliente vai buscar as versões novas.
 publish:
   provider: generic
-  url: https://updates.example.invalid/nexus
-  # Nada é publicado por padrão; `release:windows` usa --publish never.
+  url: ${env.NEXUS_UPDATE_URL}
+  # `release:windows` gera os arquivos localmente; a publicação é uma cópia
+  # para o servidor, feita pelo scripts/publish-update.sh.

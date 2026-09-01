@@ -12,6 +12,7 @@ import {
 import { join } from 'node:path';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { cryptoService } from './crypto/crypto-service';
+import { initUpdater } from './updater';
 
 /**
  * Processo principal. Regras de segurança (item 94 do plano):
@@ -364,6 +365,7 @@ if (!app.requestSingleInstanceLock()) {
 app.whenReady().then(() => {
   installDisplayMediaHandler();
   createWindow();
+  initUpdater();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

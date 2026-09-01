@@ -22,6 +22,8 @@ export function Home(): JSX.Element {
     <div className="flex h-full flex-col bg-ink-975">
       <TopBar />
 
+      <UpdateBanner />
+
       {connection !== 'connected' && (
         <div className="bg-warn-500/15 py-1 text-center text-xs text-warn-500">
           {connection === 'reconnecting' ? 'Reconectando…' : 'Conectando ao servidor…'}
@@ -42,6 +44,24 @@ export function Home(): JSX.Element {
           {error} — clique para dispensar
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * Uma atualização já foi baixada e entra na próxima abertura.
+ *
+ * Não oferece "reiniciar agora" de propósito: reiniciar no meio de uma chamada
+ * ou de uma conversa é pior do que esperar até a pessoa fechar o app.
+ */
+function UpdateBanner(): JSX.Element | null {
+  const version = useApp((s) => s.updateReady);
+  if (!version) return null;
+
+  return (
+    <div className="flex shrink-0 items-center justify-center gap-2 bg-signal-500/15 py-1 text-xs text-signal-500">
+      <Icon name="download" size={13} />
+      Versão {version} baixada — ela entra na próxima vez que você abrir o Nexus.
     </div>
   );
 }

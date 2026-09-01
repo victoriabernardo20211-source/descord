@@ -121,6 +121,8 @@ interface AppState {
   voiceError: string | null;
   /** Microfone não está no ar, mas a chamada continua. */
   micWarning: string | null;
+  /** Versão já baixada, que entra quando o app for fechado. */
+  updateReady: string | null;
   selfMuted: boolean;
   selfDeafened: boolean;
   streaming: boolean;
@@ -209,6 +211,7 @@ export const useApp = create<AppState>((set, get) => ({
   voiceConnecting: false,
   voiceError: null,
   micWarning: null,
+  updateReady: null,
   selfMuted: false,
   selfDeafened: false,
   streaming: false,
@@ -1030,6 +1033,11 @@ function registerRealtimeHandlers(): void {
       // A conexão pode cair sozinha; o estado precisa refletir isso.
       voiceChannelId: voice.channelId,
     });
+  });
+
+  // Atualização já baixada: nada é reiniciado agora — só avisamos.
+  bridge.onUpdateReady((version) => {
+    useApp.setState({ updateReady: version });
   });
 
   // Push-to-talk: o atalho global funciona com o app minimizado.

@@ -6,9 +6,24 @@
 {$NEXUS_DOMAIN} {
 	encode zstd gzip
 
-	# WebSocket e REST saem pelo mesmo host; o Caddy faz o upgrade sozinho.
-	reverse_proxy server:4000 {
-		header_up X-Real-IP {remote_host}
+	# Feed de atualização do aplicativo. Fica no mesmo host, atrás do Tailscale:
+	# quem instala o Nexus já está na rede, então não há nada novo a expor e
+	# nenhum serviço de terceiros no caminho.
+	#
+	# Só de leitura: publicar é copiar arquivo no servidor, nunca por HTTP.
+	handle_path /updates/* {
+		root * /srv/updates
+		file_server browse
+	}
+
+	# Envolvido em `handle` de propósito: junto com o `handle_path` acima isso
+	# torna as duas rotas mutuamente exclusivas, em vez de depender da ordem
+	# interna das diretivas do Caddy.
+	handle {
+		# WebSocket e REST saem pelo mesmo host; o Caddy faz o upgrade sozinho.
+		reverse_proxy server:4000 {
+			header_up X-Real-IP {remote_host}
+		}
 	}
 
 	header {

@@ -93,6 +93,8 @@ TEST_DATABASE_URL=postgresql://nexus:nexus@localhost:5432/nexus_test pnpm --filt
 - Voz e tela estão implementadas mas **não validadas com mídia real**. Enquanto o
   roteiro de `docs/VOICE.md` não passar, trate como não comprovado.
 - Chamadas privadas (DM) têm token no backend, mas ainda não têm interface.
+- Atualização automática está ligada (feed no próprio servidor, atrás do Tailscale),
+  mas o ciclo completo nunca foi exercitado. Roteiro em `docs/UPDATES.md`.
 
 ## Como trabalhar aqui
 

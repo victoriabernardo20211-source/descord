@@ -1,0 +1,92 @@
+# Atualização automática
+
+O aplicativo se atualiza sozinho. O feed é o **próprio servidor de vocês**, atrás
+do Tailscale: quem usa o Nexus já está nessa rede, então não entra loja, conta
+nem serviço de terceiros no caminho, e nada novo fica exposto na internet.
+
+## Como funciona para quem usa
+
+1. Ao abrir, e depois a cada 6 horas, o app pergunta ao servidor se há versão nova.
+2. Havendo, ele baixa em segundo plano. Ninguém é interrompido.
+3. Uma faixa verde avisa que a versão está pronta.
+4. **A troca acontece quando a pessoa fecha o aplicativo.**
+
+Não existe botão de "reiniciar agora", de propósito: reiniciar no meio de uma
+chamada ou de uma conversa é pior do que esperar a pessoa fechar o app.
+
+Se o servidor estiver fora do ar ou o Tailscale desligado, a verificação falha
+em silêncio e o app continua funcionando normalmente.
+
+## Preparar o servidor (uma vez)
+
+O feed é uma pasta servida pelo Caddy, só de leitura:
+
+```bash
+mkdir -p /opt/nexus/updates
+```
+
+E no `.env` do servidor:
+
+```
+UPDATES_DIR=/opt/nexus/updates
+```
+
+Depois, `./scripts/deploy.sh`. Confira que a pasta responde:
+
+```bash
+curl -sI https://SEU_ENDERECO/updates/ | head -1
+```
+
+## Publicar uma versão nova
+
+O endereço do feed **é gravado dentro do executável** no momento em que ele é
+gerado. Por isso `NEXUS_UPDATE_URL` precisa estar definido na hora de gerar:
+
+```bash
+# no computador que gera o instalador
+export NEXUS_UPDATE_URL=https://SEU_ENDERECO/updates
+cd apps/desktop && pnpm release:windows
+```
+
+Suba a versão em `apps/desktop/package.json` antes de gerar — o
+electron-updater compara números de versão, não datas nem hashes. Sem subir o
+número, ninguém recebe nada.
+
+Depois publique:
+
+```bash
+NEXUS_SERVER=root@100.x.y.z ./scripts/publish-update.sh
+```
+
+O script copia o instalador primeiro e o `latest.yml` depois. A ordem importa:
+ao contrário, um cliente que checasse nesse intervalo tentaria baixar um arquivo
+que ainda não existe.
+
+## Instalador não assinado
+
+O instalador não tem certificado de assinatura (é pago). Consequências:
+
+- na **primeira** instalação o Windows mostra o aviso de aplicativo desconhecido;
+- nas **atualizações** não aparece aviso nenhum: quem substitui os arquivos é o
+  próprio Nexus, já instalado.
+
+Isso também significa que a segurança da atualização depende inteiramente de
+quem consegue escrever em `/opt/nexus/updates`. Trate essa pasta como trata o
+acesso SSH ao servidor.
+
+## O que NÃO foi verificado
+
+O ciclo completo — gerar, publicar, um cliente instalado detectar, baixar e
+aplicar — **não foi exercitado**. Este ambiente não roda Windows nem Electron.
+O que existe é o código ligado e o caminho documentado; a primeira publicação
+de verdade é o teste.
+
+Roteiro para conferir, com duas pessoas:
+
+1. Publique a versão N e instale nos dois computadores.
+2. Suba a versão para N+1, gere e publique.
+3. Deixe os dois apps abertos e espere (ou reabra) — a faixa verde deve aparecer.
+4. Feche e reabra: a versão na barra de usuário deve mudar.
+
+Enquanto esse roteiro não passar, trate a atualização automática como
+**não comprovada** e mande o instalador na mão.
