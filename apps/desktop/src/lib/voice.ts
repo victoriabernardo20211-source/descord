@@ -10,6 +10,7 @@ import {
   RoomEvent,
   Track,
   VideoPresets,
+  createLocalScreenTracks,
   type LocalTrackPublication,
   type VideoCodec,
 } from 'livekit-client';
@@ -206,13 +207,14 @@ export class VoiceConnection {
   /**
    * Publica a tela escolhida no nosso seletor.
    *
-   * A captura passa por `getDisplayMedia`, mas nenhum seletor do sistema abre:
-   * o processo principal responde com a fonte que a pessoa já escolheu, e é
-   * ele que anexa o áudio em modo `loopback` — único caminho pelo qual o som do
-   * sistema é capturado no Windows.
+   * Quem captura é o próprio LiveKit (`createLocalScreenTracks`), e isso é
+   * proposital: ele devolve tracks já no formato que o SDK sabe publicar, com
+   * `ScreenShare` e `ScreenShareAudio` corretos. Publicar uma track crua à mão
+   * quebra dentro do SDK.
    *
-   * Sem permissão STREAM o SFU recusa a publicação, mesmo que a captura local
-   * tenha funcionado.
+   * Nenhum seletor do sistema aparece: o processo principal responde ao pedido
+   * de captura com a fonte que a pessoa já escolheu, e é ele que anexa o áudio
+   * em modo `loopback` — o único caminho para o som do sistema no Windows.
    */
   async startScreenShare(
     sourceId: string,
@@ -228,39 +230,27 @@ export class VoiceConnection {
           ? VideoPresets.h1080
           : VideoPresets.h720;
 
-    const video = {
-      width: { ideal: preset.resolution.width },
-      height: { ideal: preset.resolution.height },
-      frameRate: { ideal: quality.fps, max: quality.fps },
-    };
+    const resolution = { ...preset.resolution, frameRate: quality.fps };
 
     try {
-      const stream = await this.captureScreen(sourceId, video, withAudio);
-      const videoTrack = stream.getVideoTracks()[0];
-      if (!videoTrack) throw new Error('A fonte escolhida não forneceu vídeo.');
-
-      this.localScreenStream = new MediaStream([videoTrack]);
+      const tracks = await this.captureScreen(sourceId, resolution, withAudio);
       this.screenPublications = [];
 
-      const publication = await this.room.localParticipant.publishTrack(videoTrack, {
-        source: Track.Source.ScreenShare,
-        simulcast: true,
-        videoEncoding: { maxFramerate: quality.fps, maxBitrate: bitrateFor(quality) },
-      });
-      if (publication) this.screenPublications.push(publication);
+      for (const track of tracks) {
+        if (track.kind === Track.Kind.Video) {
+          // Prévia local: sem isto quem transmite não vê o que está enviando.
+          this.localScreenStream = new MediaStream([track.mediaStreamTrack]);
+          track.mediaStreamTrack.addEventListener('ended', () => void this.stopScreenShare());
+        }
 
-      const audioTrack = stream.getAudioTracks()[0];
-      if (audioTrack) {
-        const audioPublication = await this.room.localParticipant.publishTrack(audioTrack, {
-          source: Track.Source.ScreenShareAudio,
+        const publication = await this.room.localParticipant.publishTrack(track, {
+          simulcast: true,
+          videoEncoding: { maxFramerate: quality.fps, maxBitrate: bitrateFor(quality) },
         });
-        if (audioPublication) this.screenPublications.push(audioPublication);
+        if (publication) this.screenPublications.push(publication);
       }
 
-      // Parar pelo aviso do próprio sistema também precisa parar aqui.
-      videoTrack.addEventListener('ended', () => void this.stopScreenShare());
-
-      this.streaming = true;
+      this.streaming = this.screenPublications.length > 0;
     } catch (err) {
       this.localScreenStream = null;
       this.streaming = false;
@@ -273,18 +263,18 @@ export class VoiceConnection {
   /**
    * O áudio do sistema falha em várias situações no Windows — capturar uma
    * janela em vez do monitor inteiro é a mais comum. Quando isso acontece,
-   * transmitimos só o vídeo e avisamos, em vez de deixar a transmissão inteira
-   * cair por causa do som.
+   * transmitimos só o vídeo e avisamos, em vez de derrubar a transmissão toda
+   * por causa do som.
    */
   private async captureScreen(
     sourceId: string,
-    video: MediaTrackConstraints,
+    resolution: { width: number; height: number; frameRate: number },
     withAudio: boolean,
-  ): Promise<MediaStream> {
+  ): Promise<Awaited<ReturnType<typeof createLocalScreenTracks>>> {
     if (withAudio) {
       await bridge.prepareScreenShare(sourceId, true);
       try {
-        return await navigator.mediaDevices.getDisplayMedia({ video, audio: true });
+        return await createLocalScreenTracks({ audio: true, resolution });
       } catch {
         this.error =
           'Não foi possível capturar o áudio da tela. Transmitindo só o vídeo — ' +
@@ -293,7 +283,7 @@ export class VoiceConnection {
     }
 
     await bridge.prepareScreenShare(sourceId, false);
-    return navigator.mediaDevices.getDisplayMedia({ video, audio: false });
+    return createLocalScreenTracks({ audio: false, resolution });
   }
 
   async stopScreenShare(): Promise<void> {
