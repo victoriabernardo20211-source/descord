@@ -33,11 +33,30 @@ cd /opt/nexus
 ./scripts/deploy.sh
 ```
 
-Confira que a pasta responde:
+Confira que a pasta responde. Use o mesmo esquema (`http://` ou `https://`) que
+está em `NEXUS_DOMAIN` no `.env` — e sem `-s`, senão um erro de conexão vira
+silêncio:
 
 ```bash
-curl -sI https://SEU_ENDERECO/updates/ | head -1
+curl -I http://100.x.y.z/updates/
 ```
+
+Tem que voltar `HTTP/1.1 200 OK`.
+
+### http ou https?
+
+Acessando o servidor por **IP do Tailscale**, é `http://`. Não é descuido: o
+Let's Encrypt só emite certificado para domínio, nunca para IP, então com um
+`NEXUS_DOMAIN` começando em `http://` o Caddy desliga o HTTPS automático e a
+porta 443 nem abre.
+
+Isso não deixa a atualização desprotegida. O Tailscale já cifra e autentica todo
+o tráfego por WireGuard, ponta a ponta, e o feed não existe fora dessa rede —
+não há por onde alguém no meio do caminho trocar o instalador. O TLS aqui seria
+uma segunda camada dentro de um túnel que já faz esse trabalho.
+
+Se um dia vocês passarem a usar um domínio de verdade, aí `https://` vale, e o
+endereço precisa ser trocado **antes de gerar o instalador**.
 
 ## Publicar uma versão nova
 
@@ -48,7 +67,7 @@ No **seu PC** (é aqui que o instalador é gerado). No PowerShell, `export` não
 existe e `&&` não separa comandos — use uma linha por vez:
 
 ```powershell
-$env:NEXUS_UPDATE_URL = "https://SEU_ENDERECO/updates"
+$env:NEXUS_UPDATE_URL = "http://100.x.y.z/updates"
 cd apps\desktop
 pnpm release:windows
 ```
