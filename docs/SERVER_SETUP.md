@@ -186,7 +186,7 @@ O `preflight.sh` falha com uma lista do que está errado em vez de deixar o cont
 quebrar depois. Para acompanhar os logs:
 
 ```bash
-docker compose -f infrastructure/docker/docker-compose.yml logs -f
+docker compose --env-file .env -f infrastructure/docker/docker-compose.yml logs -f
 ```
 
 O Caddy emite o certificado sozinho no primeiro acesso. Verifique:
@@ -287,7 +287,9 @@ entrypoint (`prisma migrate deploy`).
 
 ```bash
 cd /opt/nexus
-COMPOSE="docker compose -f infrastructure/docker/docker-compose.yml"
+# O compose procura o .env ao lado do arquivo dele, não no diretório atual.
+# Sem o --env-file, comandos avulsos falham com "required variable is missing".
+COMPOSE="docker compose --env-file .env -f infrastructure/docker/docker-compose.yml"
 
 $COMPOSE ps                    # estado dos serviços
 $COMPOSE logs -f server        # logs ao vivo

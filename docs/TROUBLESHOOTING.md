@@ -22,7 +22,7 @@ O Caddy só consegue emitir o certificado se o DNS já apontar para a VPS **e** 
 estiver acessível de fora.
 
 ```bash
-docker compose -f infrastructure/docker/docker-compose.yml logs caddy | tail -50
+docker compose --env-file .env -f infrastructure/docker/docker-compose.yml logs caddy | tail -50
 ```
 
 Erros de ACME aparecem aí. Causas comuns: DNS ainda propagando, porta 80 bloqueada, ou limite
@@ -37,18 +37,30 @@ diferente enquanto testa).
   Atrás de outro proxy (Cloudflare, nginx), confirme que WebSocket está habilitado.
 - Sessão revogada também derruba: a conexão cai e o app volta para o login. Esperado.
 
+## "required variable POSTGRES_PASSWORD is missing a value"
+
+O `docker compose` procura o `.env` **no diretório do arquivo compose**
+(`infrastructure/docker/`), não onde você está. Use sempre `--env-file`:
+
+```bash
+cd /opt/nexus
+docker compose --env-file .env -f infrastructure/docker/docker-compose.yml ps
+```
+
+Os scripts do projeto já fazem isso. O erro só aparece em comandos digitados à mão.
+
 ## Docker não inicia
 
 ```bash
 sudo systemctl status docker
 sudo systemctl start docker
-docker compose -f infrastructure/docker/docker-compose.yml ps
+docker compose --env-file .env -f infrastructure/docker/docker-compose.yml ps
 ```
 
 Container reiniciando em loop:
 
 ```bash
-docker compose -f infrastructure/docker/docker-compose.yml logs --tail 100 server
+docker compose --env-file .env -f infrastructure/docker/docker-compose.yml logs --tail 100 server
 ```
 
 Quase sempre é `.env` incompleto. O backend valida a configuração na inicialização e diz
@@ -57,8 +69,8 @@ exatamente qual variável está faltando ou inválida.
 ## PostgreSQL indisponível
 
 ```bash
-docker compose -f infrastructure/docker/docker-compose.yml ps postgres
-docker compose -f infrastructure/docker/docker-compose.yml logs postgres | tail -30
+docker compose --env-file .env -f infrastructure/docker/docker-compose.yml ps postgres
+docker compose --env-file .env -f infrastructure/docker/docker-compose.yml logs postgres | tail -30
 ```
 
 - `POSTGRES_PASSWORD` vazio → o compose se recusa a subir (proposital).
@@ -69,7 +81,7 @@ docker compose -f infrastructure/docker/docker-compose.yml logs postgres | tail 
 ## Redis indisponível
 
 ```bash
-docker compose -f infrastructure/docker/docker-compose.yml logs redis | tail -30
+docker compose --env-file .env -f infrastructure/docker/docker-compose.yml logs redis | tail -30
 ```
 
 Com o Redis fora do ar, **as mensagens continuam funcionando** (Postgres é a fonte da verdade),

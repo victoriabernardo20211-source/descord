@@ -3,7 +3,7 @@
 # Faz backup antes de atualizar e espera o health check ficar verde.
 set -euo pipefail
 
-COMPOSE="docker compose -f infrastructure/docker/docker-compose.yml"
+COMPOSE="docker compose --env-file .env -f infrastructure/docker/docker-compose.yml"
 SKIP_BACKUP="${SKIP_BACKUP:-0}"
 
 ./scripts/preflight.sh

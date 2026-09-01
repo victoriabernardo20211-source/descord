@@ -8,12 +8,16 @@ set -euo pipefail
 DB_DUMP="${1:?uso: restore.sh <dump.sql.gz> [storage.tar.gz]}"
 STORAGE_ARCHIVE="${2:-}"
 COMPOSE_FILE="${COMPOSE_FILE:-infrastructure/docker/docker-compose.yml}"
+COMPOSE="docker compose --env-file .env -f $COMPOSE_FILE"
+
+# shellcheck disable=SC1091
+set -a; . ./.env; set +a
 
 echo "→ Parando o servidor (banco e redis seguem no ar)"
-docker compose -f "$COMPOSE_FILE" stop server
+$COMPOSE stop server
 
 echo "→ Restaurando o banco"
-gunzip -c "$DB_DUMP" | docker compose -f "$COMPOSE_FILE" exec -T postgres \
+gunzip -c "$DB_DUMP" | $COMPOSE exec -T postgres \
   psql -U "${POSTGRES_USER:-nexus}" -d "${POSTGRES_DB:-nexus}"
 
 if [ -n "$STORAGE_ARCHIVE" ]; then
@@ -25,5 +29,5 @@ if [ -n "$STORAGE_ARCHIVE" ]; then
 fi
 
 echo "→ Subindo o servidor (o purge de expiração roda na inicialização)"
-docker compose -f "$COMPOSE_FILE" up -d server
-docker compose -f "$COMPOSE_FILE" logs -f --tail 40 server
+$COMPOSE up -d server
+$COMPOSE logs -f --tail 40 server

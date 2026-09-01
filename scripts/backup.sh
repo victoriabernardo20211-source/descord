@@ -10,13 +10,20 @@ set -euo pipefail
 
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/nexus}"
 COMPOSE_FILE="${COMPOSE_FILE:-infrastructure/docker/docker-compose.yml}"
+# O compose procura o .env ao lado do arquivo dele, não no diretório atual —
+# por isso o --env-file explícito em toda invocação.
+COMPOSE="docker compose --env-file .env -f $COMPOSE_FILE"
+
+# Carrega POSTGRES_USER, POSTGRES_DB e afins para uso nos comandos abaixo.
+# shellcheck disable=SC1091
+set -a; . ./.env; set +a
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 KEEP_DAYS="${KEEP_DAYS:-14}"
 
 mkdir -p "$BACKUP_DIR"
 
 echo "→ Banco de dados"
-docker compose -f "$COMPOSE_FILE" exec -T postgres \
+$COMPOSE exec -T postgres \
   pg_dump -U "${POSTGRES_USER:-nexus}" -d "${POSTGRES_DB:-nexus}" --clean --if-exists \
   | gzip > "$BACKUP_DIR/nexus-db-$STAMP.sql.gz"
 
