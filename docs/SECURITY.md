@@ -137,7 +137,11 @@ descartados.
 
 - HTTPS e WSS obrigatórios em produção (Caddy resolve o certificado).
 - Cabeçalhos: HSTS, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`.
-- CORS restrito a origens configuradas.
+- CORS: `*` é o valor correto para este projeto. O cliente é um app desktop, sem origem
+  web fixa (`localhost:5173` em desenvolvimento, `file://` empacotado), e a autenticação
+  é por token no cabeçalho `Authorization` — não por cookie. Como não existe credencial
+  ambiente que um site pudesse reaproveitar, o CORS aqui não é fronteira de segurança.
+  Restringi-lo só bloquearia o próprio aplicativo.
 - **PostgreSQL e Redis não expõem portas** no `docker-compose.yml` de produção — só a rede
   interna do Docker os enxerga. O Redis ainda assim exige senha.
 - Swagger só existe fora de produção.
@@ -165,7 +169,7 @@ Erros, falhas de autenticação, jobs, limpeza de DMs, eventos de inicializaçã
 - [ ] `POSTGRES_PASSWORD` e `REDIS_PASSWORD` fortes e únicos
 - [ ] `REGISTRATION_INVITE_CODE` definido (fecha o cadastro)
 - [ ] `INITIAL_ADMIN_EMAIL` definido antes da primeira conta
-- [ ] `CORS_ORIGINS` restrito
+- [ ] `CORS_ORIGINS=*` (ver acima — restringir quebra o app desktop)
 - [ ] `.env` com permissão `600`, fora do git
 - [ ] Firewall: só 22, 80, 443 (+ UDP do WebRTC na Fase 2)
 - [ ] Backups agendados e **uma restauração testada**

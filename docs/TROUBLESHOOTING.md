@@ -16,6 +16,21 @@ O app mostra essa tela quando `/api/health` não responde.
    ```
 4. Usando Tailscale? Confirme que o computador está conectado à tailnet: `tailscale status`.
 
+## "blocked by CORS policy" no console do app
+
+`CORS_ORIGINS` está restrito a algum endereço. O app desktop carrega de
+`http://localhost:5173` em desenvolvimento e de `file://` quando empacotado — nunca do
+endereço do servidor — então qualquer restrição bloqueia o próprio aplicativo.
+
+```bash
+cd /opt/nexus
+sed -i 's|^CORS_ORIGINS=.*|CORS_ORIGINS=*|' .env
+./scripts/deploy.sh
+```
+
+Isso não afrouxa a segurança: a autenticação é por token no cabeçalho, não por cookie.
+Ver `docs/SECURITY.md`.
+
 ## Certificado inválido / erro de HTTPS
 
 O Caddy só consegue emitir o certificado se o DNS já apontar para a VPS **e** a porta 80

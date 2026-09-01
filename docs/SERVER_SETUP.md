@@ -148,7 +148,7 @@ Ajuste no `.env`:
 NODE_ENV=production
 NEXUS_DOMAIN=chat.seudominio.com
 PUBLIC_URL=https://chat.seudominio.com
-CORS_ORIGINS=https://chat.seudominio.com
+CORS_ORIGINS=*                             # correto para cliente desktop; ver docs/SECURITY.md
 INITIAL_ADMIN_EMAIL=voce@seuemail.com      # esta conta vira admin global
 REGISTRATION_INVITE_CODE=algo-que-so-voces-sabem
 ```

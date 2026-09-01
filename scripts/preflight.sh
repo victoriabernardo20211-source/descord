@@ -68,10 +68,12 @@ case "${PUBLIC_URL:-}" in
   *)         warn "PUBLIC_URL não usa HTTPS: ${PUBLIC_URL}" ;;
 esac
 
+# Para um cliente desktop, `*` é o valor correto — ele não tem origem web fixa,
+# e a autenticação é por token no cabeçalho, não por cookie.
 if [ "${CORS_ORIGINS:-}" = "*" ]; then
-  warn "CORS_ORIGINS=* aceita qualquer origem. Prefira o seu domínio."
+  ok "CORS_ORIGINS=* (correto para cliente desktop)."
 else
-  ok "CORS_ORIGINS restrito."
+  warn "CORS_ORIGINS restrito a '${CORS_ORIGINS:-}'. O app desktop carrega de localhost:5173 (dev) ou file:// (empacotado) e será bloqueado. Use * a menos que exista também um cliente web."
 fi
 
 if [ -z "${REGISTRATION_INVITE_CODE:-}" ]; then
