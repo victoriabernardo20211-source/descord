@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
+import { bridge } from '../lib/bridge';
 import { useApp } from '../store/app';
 import { Logo } from './Connect';
 
@@ -14,6 +15,13 @@ export function Login(): JSX.Element {
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Preenche o e-mail da última vez. A senha não é guardada em lugar nenhum.
+  useEffect(() => {
+    void bridge.getConfig().then((config) => {
+      if (config.lastEmail) setForm((current) => ({ ...current, email: config.lastEmail as string }));
+    });
+  }, []);
 
   const login = useApp((s) => s.login);
   const register = useApp((s) => s.register);

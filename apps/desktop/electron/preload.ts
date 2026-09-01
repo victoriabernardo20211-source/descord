@@ -5,10 +5,13 @@ import { contextBridge, ipcRenderer } from 'electron';
  * apenas estas funções nomeadas.
  */
 const api = {
-  getConfig: (): Promise<{ apiUrl?: string; refreshToken?: string }> =>
+  getConfig: (): Promise<{ apiUrl?: string; refreshToken?: string; lastEmail?: string }> =>
     ipcRenderer.invoke('config:get'),
-  setConfig: (patch: { apiUrl?: string; refreshToken?: string }): Promise<unknown> =>
-    ipcRenderer.invoke('config:set', patch),
+  setConfig: (patch: {
+    apiUrl?: string;
+    refreshToken?: string;
+    lastEmail?: string;
+  }): Promise<unknown> => ipcRenderer.invoke('config:set', patch),
   clearSession: (): Promise<unknown> => ipcRenderer.invoke('config:clear-session'),
   openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke('shell:open-external', url),
   notify: (title: string, body: string): Promise<boolean> =>

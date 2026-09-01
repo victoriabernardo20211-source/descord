@@ -25,6 +25,8 @@ let mainWindow: BrowserWindow | null = null;
 interface DesktopConfig {
   apiUrl?: string;
   refreshToken?: string;
+  /** Último e-mail usado, só para preencher o campo. Senha nunca é gravada. */
+  lastEmail?: string;
 }
 
 function configPath(): string {
@@ -91,10 +93,11 @@ function createWindow(): void {
 ipcMain.handle('config:get', async () => readConfig());
 ipcMain.handle('config:set', async (_event, patch: unknown) => {
   if (typeof patch !== 'object' || patch === null) throw new Error('Configuração inválida.');
-  const { apiUrl, refreshToken } = patch as DesktopConfig;
+  const { apiUrl, refreshToken, lastEmail } = patch as DesktopConfig;
   const clean: DesktopConfig = {};
   if (typeof apiUrl === 'string') clean.apiUrl = apiUrl;
   if (typeof refreshToken === 'string' || refreshToken === null) clean.refreshToken = refreshToken;
+  if (typeof lastEmail === 'string') clean.lastEmail = lastEmail;
   return writeConfig(clean);
 });
 ipcMain.handle('config:clear-session', async () => writeConfig({ refreshToken: undefined }));

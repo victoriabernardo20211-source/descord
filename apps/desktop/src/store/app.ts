@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { DirectMessage, Message, PresenceState, PublicUser } from '@nexus/shared';
-import { ApiClient } from '../lib/api';
+import { ApiClient, ApiError } from '../lib/api';
 import { E2eeManager } from '../lib/e2ee';
 import { voice, type StreamQuality, type VoicePeer } from '../lib/voice';
 import { dmPayloadSchema, type DmPayload, type EncryptedFile } from '@nexus/shared';
@@ -271,16 +271,41 @@ export const useApp = create<AppState>((set, get) => ({
     api.setRefreshToken(config.refreshToken);
     try {
       await api.request('/users/me');
-      await afterLogin(set, get);
-    } catch {
-      await bridge.clearSession();
-      set({ status: 'login' });
+    } catch (err) {
+      // Só descartamos a sessão quando ela foi REALMENTE recusada. Antes, um
+      // erro de rede qualquer apagava o login salvo e obrigava a digitar tudo
+      // de novo — era o que acontecia a cada tropeço de configuração.
+      const rejected =
+        err instanceof ApiError &&
+        (err.status === 401 || err.code === 'SESSION_EXPIRED' || err.code === 'INVALID_TOKEN');
+
+      if (rejected) {
+        await bridge.clearSession();
+        set({ status: 'login', error: 'Sua sessão expirou. Entre novamente.' });
+      } else {
+        set({
+          status: 'server-unreachable',
+          error: 'Não foi possível conectar ao servidor.',
+        });
+      }
+      return;
     }
+
+    // Uma falha aqui (criptografia, listagem inicial) não é motivo para perder
+    // a sessão: o login continua válido.
+    await afterLogin(set, get).catch((err: unknown) => {
+      set({
+        status: 'server-unreachable',
+        error: err instanceof Error ? err.message : 'Falha ao carregar seus dados.',
+      });
+    });
   },
 
   login: async (email, password) => {
     const api = get().api;
     if (!api) return;
+    // O e-mail é lembrado para preencher o campo; a senha nunca é guardada.
+    await bridge.setConfig({ lastEmail: email });
     const result = await api.post<{ accessToken: string; refreshToken: string }>('/auth/login', {
       email,
       password,
