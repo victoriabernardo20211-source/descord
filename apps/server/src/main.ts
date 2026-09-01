@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -43,7 +43,9 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix('api');
   app.enableCors({ origin: config.corsOrigins, credentials: true });
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  // Sem ValidationPipe global: toda entrada é validada por schema Zod
+  // compartilhado com o cliente (ZodValidationPipe). O pipe do Nest exigiria
+  // class-validator, que não usamos — e faltando ele, o app nem inicia.
   app.useWebSocketAdapter(new RedisIoAdapter(app, app.get(RedisService), config.corsOrigins));
 
   app.use((_req: unknown, res: { setHeader: (k: string, v: string) => void }, next: () => void) => {

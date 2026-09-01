@@ -49,10 +49,24 @@ OUTPUT="$(timeout 30 env \
   STORAGE_PATH="$RT/storage" \
   node dist/main.js 2>&1 || true)"
 
-if grep -qE "MODULE_NOT_FOUND|Cannot find module|ERR_PACKAGE_PATH_NOT_EXPORTED" <<<"$OUTPUT"; then
+# Dependência ausente no layout de produção, em qualquer das formas que o Node
+# e o Nest reportam. A terceira pegou o `class-validator`, que some no install
+# de produção e derruba o app DEPOIS de todos os módulos carregarem.
+FATAL='MODULE_NOT_FOUND|Cannot find module|ERR_PACKAGE_PATH_NOT_EXPORTED|package is missing|PackageLoader'
+if grep -qE "$FATAL" <<<"$OUTPUT"; then
   echo
-  echo "✗ FALHOU: faltou um módulo no layout de produção."
-  grep -E "MODULE_NOT_FOUND|Cannot find module|ERR_PACKAGE_PATH_NOT_EXPORTED" <<<"$OUTPUT" | head -5
+  echo "✗ FALHOU: dependência ausente no layout de produção."
+  grep -E "$FATAL" <<<"$OUTPUT" | head -5
+  exit 1
+fi
+
+# Qualquer ERROR que não seja a falta esperada de Postgres/Redis.
+UNEXPECTED="$(grep -E "ERROR|\[Nest\].*ERROR" <<<"$OUTPUT" \
+  | grep -viE "ECONNREFUSED|Can.t reach database|connect ECONNREFUSED|Redis|PrismaClientInitializationError" || true)"
+if [ -n "$UNEXPECTED" ]; then
+  echo
+  echo "✗ FALHOU: erro inesperado durante a inicialização."
+  head -5 <<<"$UNEXPECTED"
   exit 1
 fi
 
