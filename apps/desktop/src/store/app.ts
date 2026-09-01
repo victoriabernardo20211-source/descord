@@ -172,6 +172,11 @@ interface AppState {
 
   createServer: (name: string) => Promise<void>;
   joinServer: (code: string) => Promise<void>;
+  createInvite: (
+    serverId: string,
+    maxAgeSeconds: number,
+    maxUses: number,
+  ) => Promise<{ code: string; expiresAt: string | null }>;
   addFriend: (username: string) => Promise<string>;
   respondFriendRequest: (id: string, accept: boolean) => Promise<void>;
   refreshFriends: () => Promise<void>;
@@ -675,6 +680,15 @@ export const useApp = create<AppState>((set, get) => ({
           ],
     }));
     await get().openServer(detail.id);
+  },
+
+  createInvite: async (serverId, maxAgeSeconds, maxUses) => {
+    const api = get().api;
+    if (!api) throw new Error('Sem conexão com o servidor.');
+    return api.post<{ code: string; expiresAt: string | null }>(
+      `/servers/${serverId}/invites`,
+      { maxAgeSeconds, maxUses },
+    );
   },
 
   addFriend: async (username) => {

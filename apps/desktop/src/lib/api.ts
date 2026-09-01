@@ -1,10 +1,17 @@
 import { bridge } from './bridge';
 
+export interface FieldIssue {
+  path: string;
+  message: string;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly code: string,
     readonly status: number,
+    /** Problemas por campo, quando o servidor recusou a validação. */
+    readonly issues: FieldIssue[] = [],
   ) {
     super(message);
   }
@@ -80,11 +87,16 @@ export class ApiClient {
     }
 
     if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { message?: string; code?: string };
+      const body = (await res.json().catch(() => ({}))) as {
+        message?: string;
+        code?: string;
+        issues?: FieldIssue[];
+      };
       throw new ApiError(
         body.message ?? 'Não foi possível concluir a ação.',
         body.code ?? 'UNKNOWN',
         res.status,
+        body.issues ?? [],
       );
     }
 

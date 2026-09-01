@@ -7,6 +7,7 @@ import { MessageList } from '../components/MessageList';
 import { TypingIndicator } from '../components/TypingIndicator';
 import { AddServerDialog } from '../components/AddServerDialog';
 import { CallView } from '../components/CallView';
+import { InviteDialog } from '../components/InviteDialog';
 import { VoiceSettings } from '../components/VoiceSettings';
 import { ScreenSharePicker } from '../components/ScreenSharePicker';
 import { useApp } from '../store/app';
@@ -123,14 +124,39 @@ function Sidebar(): JSX.Element {
   const openFriends = useApp((s) => s.openFriends);
   const me = useApp((s) => s.me);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [inviting, setInviting] = useState(false);
 
   const isServer = view.kind === 'server' && detail;
 
   return (
     <aside className="flex w-sidebar shrink-0 flex-col bg-ink-850">
-      <header className="flex h-header items-center border-b border-ink-950/60 px-4 shadow-sm">
-        <h2 className="truncate font-semibold">{isServer ? detail.name : 'Mensagens'}</h2>
+      <header className="flex h-header items-center gap-2 border-b border-ink-950/60 px-4 shadow-sm">
+        <h2 className="min-w-0 flex-1 truncate font-semibold">
+          {isServer ? detail.name : 'Mensagens'}
+        </h2>
+        {isServer && (
+          <button
+            onClick={() => setInviting(true)}
+            title="Convidar pessoas"
+            aria-label="Convidar pessoas"
+            className="rounded p-1 text-mist-400 transition-colors hover:bg-ink-800 hover:text-mist-50"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <path d="M15 20v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1" />
+              <circle cx="8.5" cy="8" r="3.5" />
+              <path d="M19 8v6M22 11h-6" />
+            </svg>
+          </button>
+        )}
       </header>
+
+      {isServer && inviting && (
+        <InviteDialog
+          serverId={detail.id}
+          serverName={detail.name}
+          onClose={() => setInviting(false)}
+        />
+      )}
 
       <div className="flex-1 overflow-y-auto p-2">
         {isServer ? (

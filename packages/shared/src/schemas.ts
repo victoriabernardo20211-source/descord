@@ -5,7 +5,10 @@ export const usernameSchema = z
   .string()
   .min(3)
   .max(32)
-  .regex(/^[a-z0-9._-]+$/, 'Use apenas letras minúsculas, números, ponto, hífen ou underline');
+  .regex(
+    /^[a-z0-9._-]+$/,
+    'Use apenas letras minúsculas, números, ponto, hífen ou underline — sem @ e sem espaços',
+  );
 
 export const passwordSchema = z.string().min(10).max(200);
 

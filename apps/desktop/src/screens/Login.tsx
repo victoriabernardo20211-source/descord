@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
+import { ApiError } from '../lib/api';
 import { bridge } from '../lib/bridge';
 import { useApp } from '../store/app';
 import { Logo } from './Connect';
@@ -14,6 +15,7 @@ export function Login(): JSX.Element {
     inviteCode: '',
   });
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   // Preenche o e-mail da última vez. A senha não é guardada em lugar nenhum.
@@ -30,6 +32,7 @@ export function Login(): JSX.Element {
   async function submit(): Promise<void> {
     setBusy(true);
     setError(null);
+    setFieldErrors({});
     try {
       if (mode === 'login') {
         await login(form.email, form.password);
@@ -43,7 +46,16 @@ export function Login(): JSX.Element {
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível entrar.');
+      // "Dados inválidos" sozinho não ajuda ninguém: o servidor diz qual campo
+      // recusou e por quê, e é isso que precisa aparecer sob o campo.
+      if (err instanceof ApiError && err.issues.length > 0) {
+        setFieldErrors(
+          Object.fromEntries(err.issues.map((issue) => [issue.path, issue.message])),
+        );
+        setError('Confira os campos destacados.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Não foi possível entrar.');
+      }
     } finally {
       setBusy(false);
     }
@@ -54,19 +66,39 @@ export function Login(): JSX.Element {
     key: keyof typeof form,
     type = 'text',
     hint?: string,
-  ): JSX.Element => (
-    <label className="mt-4 block text-xs font-medium uppercase tracking-wide text-mist-400">
-      {label}
-      <input
-        type={type}
-        value={form[key]}
-        onChange={(event) => setForm({ ...form, [key]: event.target.value })}
-        onKeyDown={(event) => event.key === 'Enter' && void submit()}
-        className="mt-1.5 w-full rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 text-sm normal-case tracking-normal text-mist-50 focus:border-pulse-400 focus:outline-none"
-      />
-      {hint && <span className="mt-1 block normal-case tracking-normal text-[11px]">{hint}</span>}
-    </label>
-  );
+  ): JSX.Element => {
+    const issue = fieldErrors[key];
+    return (
+      <label className="mt-4 block text-xs font-medium uppercase tracking-wide text-mist-400">
+        {label}
+        <input
+          type={type}
+          value={form[key]}
+          onChange={(event) => {
+            // O arroba é como as pessoas pensam em nome de usuário, mas não faz
+            // parte dele. Tiramos em vez de recusar o cadastro por causa disso.
+            const raw = event.target.value;
+            const value = key === 'username' ? raw.replace(/^@+/, '').toLowerCase() : raw;
+            setForm({ ...form, [key]: value });
+            if (issue) setFieldErrors((current) => ({ ...current, [key]: '' }));
+          }}
+          onKeyDown={(event) => event.key === 'Enter' && void submit()}
+          className={`mt-1.5 w-full rounded-lg border bg-ink-900 px-3 py-2 text-sm normal-case tracking-normal text-mist-50 focus:outline-none ${
+            issue ? 'border-alert-500' : 'border-ink-600 focus:border-pulse-400'
+          }`}
+        />
+        {issue ? (
+          <span className="mt-1 block normal-case tracking-normal text-[11px] text-alert-500">
+            {issue}
+          </span>
+        ) : (
+          hint && (
+            <span className="mt-1 block normal-case tracking-normal text-[11px]">{hint}</span>
+          )
+        )}
+      </label>
+    );
+  };
 
   return (
     <div className="flex h-full items-center justify-center bg-ink-900">
