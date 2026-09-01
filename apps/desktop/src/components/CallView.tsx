@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { Avatar } from './Avatar';
 import { voice, type VoicePeer } from '../lib/voice';
@@ -74,14 +74,24 @@ function Tile({
   isSelf: boolean;
   large?: boolean;
 }): JSX.Element {
-  const video = useRef<HTMLVideoElement>(null);
-  const [hasVideo, setHasVideo] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   useEffect(() => {
-    const stream = isSelf ? voice.localScreenStream : voice.remoteStreams.get(peer.userId);
-    setHasVideo(Boolean(stream));
-    if (stream && video.current) video.current.srcObject = stream;
+    setStream(isSelf ? voice.localScreenStream : (voice.remoteStreams.get(peer.userId) ?? null));
   }, [peer.userId, peer.streaming, isSelf]);
+
+  /**
+   * Ref de callback, e não `useRef` + efeito: o elemento `<video>` só existe
+   * depois que `stream` deixa de ser nulo, então um efeito que rodasse junto
+   * com a mudança de estado encontraria a ref ainda vazia e nunca atribuiria
+   * `srcObject` — resultado: um quadro preto com a transmissão funcionando.
+   */
+  const attach = useCallback(
+    (element: HTMLVideoElement | null) => {
+      if (element && stream) element.srcObject = stream;
+    },
+    [stream],
+  );
 
   return (
     <div
@@ -89,15 +99,17 @@ function Tile({
         peer.speaking ? 'border-signal-500' : 'border-transparent'
       } ${large ? 'h-full' : 'aspect-video'}`}
     >
-      {hasVideo ? (
+      {stream ? (
         <video
-          ref={video}
+          ref={attach}
           autoPlay
           playsInline
-          // A própria prévia vai muda: ouvir o próprio áudio causa realimentação.
+          // A prévia da própria tela vai muda: ouvir o próprio áudio realimenta.
           muted={isSelf}
           className="h-full w-full bg-black object-contain"
-          onDoubleClick={() => void video.current?.requestFullscreen().catch(() => undefined)}
+          onDoubleClick={(event) =>
+            void event.currentTarget.requestFullscreen().catch(() => undefined)
+          }
         />
       ) : (
         <Avatar name={peer.displayName} size={large ? 120 : 64} />
