@@ -58,6 +58,17 @@ Ele existe porque três bugs reais passaram por lint, typecheck, testes e build:
 
 Lição: build passar ≠ aplicação iniciar. Quando o alvo é produção, **inicie o processo**.
 
+Para conferir **layout** sem GUI (este ambiente não roda Electron), existe um arnês
+que monta a tela principal com dados falsos e sem servidor:
+
+```bash
+cd apps/desktop && npx vite build --config vite.preview.config.ts
+# sirva apps/desktop/out/preview e abra preview.html (#dm abre a conversa privada)
+```
+
+`src/preview.tsx` não entra no aplicativo: o build do Electron só usa `src/index.html`.
+Ele prova que as telas renderizam e como ficam — **não** prova voz, tela nem rede.
+
 Testes de integração do servidor exigem Postgres e Redis reais:
 ```bash
 docker compose -f infrastructure/docker/docker-compose.dev.yml up -d

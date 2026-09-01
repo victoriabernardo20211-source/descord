@@ -9,7 +9,11 @@
  */
 @theme {
   /* Fundos */
+  /* Mais fundo que o rail: telas de entrada e campos dentro de cartões. */
+  --color-ink-975: #08090b;
   --color-ink-950: #0a0b0d;
+  /* Fundo da área de conversa: um degrau acima do rail, abaixo da lateral. */
+  --color-ink-925: #0d0e10;
   --color-ink-900: #101114;
   --color-ink-850: #15171b;
   --color-ink-800: #1a1d22;
@@ -37,6 +41,9 @@
   --color-signal-600: #1e8f63;
   --color-warn-500: #ffb224;
   --color-alert-500: #e5484d;
+  /* Rosa da transmissão ao vivo: separado do vermelho de erro de propósito. */
+  --color-live-500: #ff4f8d;
+  --color-live-300: #ff7fae;
   --color-alert-tint: #5c2b2e;
 
   /* Densidade de app desktop, medida no design */
@@ -45,6 +52,9 @@
   --spacing-header: 46px;
   --spacing-row: 30px;
   --spacing-field: 38px;
+  --spacing-tile: 40px;
+  --spacing-user: 54px;
+  --spacing-members: 240px;
 
   --font-sans: 'Geist Variable', 'Geist', 'Segoe UI', system-ui, sans-serif;
 }

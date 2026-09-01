@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { Avatar } from './Avatar';
+import { Icon } from './Icon';
 import { voice, type VoicePeer } from '../lib/voice';
 import { useApp } from '../store/app';
 
@@ -22,45 +23,52 @@ export function CallView({ channelId }: { channelId: string }): JSX.Element {
   const highlighted = watching ? peers.find((p) => p.userId === watching) : null;
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-ink-950">
-      <header className="flex h-header shrink-0 items-center gap-2 border-b border-ink-900 px-4">
-        <SpeakerIcon />
-        <h2 className="truncate font-semibold">{channel?.name ?? 'Canal de voz'}</h2>
-        <span className="text-xs text-mist-400">
+    <div className="flex min-w-0 flex-1 flex-col bg-ink-925">
+      <header className="flex h-header shrink-0 items-center gap-2.5 border-b border-ink-900 px-3">
+        <Icon name="speaker" size={18} className="shrink-0 text-mist-500" />
+        <h2 className="truncate text-[15px] font-semibold text-mist-50">
+          {channel?.name ?? 'Canal de voz'}
+        </h2>
+        <span className="h-[18px] w-px bg-ink-700" />
+        <span className="text-[12.5px] text-mist-400">
           {peers.length} {peers.length === 1 ? 'pessoa' : 'pessoas'}
         </span>
       </header>
 
-      {highlighted ? (
-        <div className="flex min-h-0 flex-1 flex-col p-3">
-          <button
-            onClick={() => watchStream(null)}
-            className="mb-2 self-start rounded-md bg-ink-800 px-3 py-1 text-xs text-mist-200 hover:bg-ink-700"
-          >
-            ← Voltar para a grade
-          </button>
-          <Tile peer={highlighted} isSelf={highlighted.userId === me?.id} large />
-        </div>
-      ) : (
-        <div
-          className="grid min-h-0 flex-1 content-center gap-3 p-4"
-          style={{
-            gridTemplateColumns: `repeat(${peers.length <= 1 ? 1 : peers.length <= 4 ? 2 : 3}, minmax(0, 1fr))`,
-          }}
-        >
-          {peers.map((peer) => (
+      <div className="flex min-h-0 flex-1 flex-col gap-3 bg-ink-975 p-3.5">
+        {highlighted ? (
+          <>
             <button
-              key={peer.userId}
-              onClick={() => peer.streaming && watchStream(peer.userId)}
-              className={peer.streaming ? 'cursor-zoom-in text-left' : 'cursor-default text-left'}
+              onClick={() => watchStream(null)}
+              className="flex h-7 w-fit items-center gap-1.5 rounded-md bg-ink-850 px-2.5 text-xs text-mist-200 transition-colors hover:bg-ink-800"
             >
-              <Tile peer={peer} isSelf={peer.userId === me?.id} />
+              <Icon name="chev-l" size={13} />
+              Voltar para a grade
             </button>
-          ))}
-        </div>
-      )}
+            <Tile peer={highlighted} isSelf={highlighted.userId === me?.id} large />
+          </>
+        ) : (
+          <div
+            className="grid min-h-0 flex-1 gap-2.5"
+            style={{
+              gridTemplateColumns: `repeat(${peers.length <= 1 ? 1 : peers.length <= 4 ? 2 : 3}, minmax(0, 1fr))`,
+              gridAutoRows: '1fr',
+            }}
+          >
+            {peers.map((peer) => (
+              <button
+                key={peer.userId}
+                onClick={() => peer.streaming && watchStream(peer.userId)}
+                className={`min-h-0 text-left ${peer.streaming ? 'cursor-zoom-in' : 'cursor-default'}`}
+              >
+                <Tile peer={peer} isSelf={peer.userId === me?.id} />
+              </button>
+            ))}
+          </div>
+        )}
 
-      <CallControls />
+        <CallControls />
+      </div>
     </div>
   );
 }
@@ -95,9 +103,9 @@ function Tile({
 
   return (
     <div
-      className={`relative flex items-center justify-center overflow-hidden rounded-xl border-2 bg-ink-900 transition-colors ${
-        peer.speaking ? 'border-signal-500' : 'border-transparent'
-      } ${large ? 'h-full' : 'aspect-video'}`}
+      className={`relative flex h-full items-center justify-center overflow-hidden rounded-xl border-[1.5px] bg-ink-900 transition-colors ${
+        peer.speaking ? 'border-signal-500' : 'border-ink-800'
+      }`}
     >
       {stream ? (
         <video
@@ -112,25 +120,26 @@ function Tile({
           }
         />
       ) : (
-        <Avatar name={peer.displayName} size={large ? 120 : 64} />
+        <Avatar name={peer.displayName} size={large ? 120 : 80} />
       )}
 
-      <span className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-md bg-ink-950/80 px-2 py-1 text-xs">
-        {peer.micMuted && <MutedIcon />}
+      <span className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-[7px] bg-ink-975/70 px-2.5 py-1 text-[12.5px] font-semibold text-mist-200">
         {peer.displayName}
-        {isSelf && <span className="text-mist-400">(você)</span>}
+        {isSelf && <span className="font-normal text-mist-500">(você)</span>}
+        {peer.micMuted && <Icon name="mic-off" size={13} className="text-alert-500" />}
       </span>
 
       {peer.streaming && (
-        <span className="absolute right-2 top-2 rounded bg-alert-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-          AO VIVO
+        <span className="absolute right-3 top-3 flex items-center gap-1.5 rounded-md border border-live-500/50 bg-live-500/15 px-1.5 py-[3px] text-[10px] font-extrabold tracking-[0.08em] text-live-300">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-live-500" />
+          LIVE
         </span>
       )}
     </div>
   );
 }
 
-/** Barra de controles da chamada, no rodapé da área principal. */
+/** Barra de controles flutuante, centrada no rodapé da chamada. */
 function CallControls(): JSX.Element {
   const selfMuted = useApp((s) => s.selfMuted);
   const selfDeafened = useApp((s) => s.selfDeafened);
@@ -153,12 +162,12 @@ function CallControls(): JSX.Element {
       onClick={onClick}
       title={label}
       aria-label={label}
-      className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
+      className={`flex h-10 w-11 items-center justify-center rounded-[10px] transition-colors ${
         danger
-          ? 'bg-alert-500 text-white hover:bg-alert-500/80'
+          ? 'bg-alert-500 text-white hover:brightness-110'
           : active
             ? 'bg-mist-50 text-ink-950 hover:bg-mist-200'
-            : 'bg-ink-800 text-mist-200 hover:bg-ink-700'
+            : 'bg-ink-850 text-mist-200 hover:bg-ink-800'
       }`}
     >
       {icon}
@@ -166,80 +175,41 @@ function CallControls(): JSX.Element {
   );
 
   return (
-    <div className="flex shrink-0 flex-col items-center gap-3 border-t border-ink-900 py-4">
+    <div className="flex shrink-0 flex-col items-center gap-2.5">
       {micWarning && (
-        <p className="mx-4 rounded-md border border-alert-500/40 bg-alert-500/10 px-3 py-2 text-center text-xs text-alert-500">
+        <p className="max-w-lg rounded-md border border-alert-500/40 bg-alert-500/10 px-3 py-2 text-center text-xs text-alert-500">
           {micWarning}
         </p>
       )}
-      <div className="flex items-center justify-center gap-3">
-      {button(selfMuted ? 'Ativar microfone' : 'Silenciar', selfMuted, () => void toggleMute(), <MicIcon muted={selfMuted} />)}
-      {button(selfDeafened ? 'Voltar a ouvir' : 'Ensurdecer', selfDeafened, () => void toggleDeafen(), <HeadphonesIcon muted={selfDeafened} />)}
-      {button(
-        streaming ? 'Parar transmissão' : 'Compartilhar tela',
-        streaming,
-        () => (streaming ? void stopScreenShare() : setSharing(true)),
-        <ScreenIcon />,
-      )}
-      {button('Desconectar', false, () => void leaveVoice(), <HangUpIcon />, true)}
+
+      <div className="flex gap-2 rounded-[14px] border border-ink-800 bg-ink-900/90 p-2">
+        {button(
+          selfMuted ? 'Ativar microfone' : 'Silenciar',
+          selfMuted,
+          () => void toggleMute(),
+          <Icon name={selfMuted ? 'mic-off' : 'mic'} size={19} />,
+        )}
+        {button(
+          selfDeafened ? 'Voltar a ouvir' : 'Ensurdecer',
+          selfDeafened,
+          () => void toggleDeafen(),
+          <Icon name={selfDeafened ? 'head-off' : 'head'} size={19} />,
+        )}
+        {button(
+          streaming ? 'Parar transmissão' : 'Compartilhar tela',
+          streaming,
+          () => (streaming ? void stopScreenShare() : setSharing(true)),
+          <Icon name="share" size={19} />,
+        )}
+        <span className="mx-0.5 w-px bg-ink-700" />
+        {button(
+          'Desconectar',
+          false,
+          () => void leaveVoice(),
+          <Icon name="phone-off" size={19} />,
+          true,
+        )}
       </div>
     </div>
-  );
-}
-
-const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const };
-
-function MicIcon({ muted }: { muted: boolean }): JSX.Element {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" {...stroke} aria-hidden>
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-      {muted && <path d="M4 4l16 16" />}
-    </svg>
-  );
-}
-
-function HeadphonesIcon({ muted }: { muted: boolean }): JSX.Element {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" {...stroke} aria-hidden>
-      <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
-      <rect x="2" y="14" width="5" height="7" rx="2" />
-      <rect x="17" y="14" width="5" height="7" rx="2" />
-      {muted && <path d="M4 4l16 16" />}
-    </svg>
-  );
-}
-
-function ScreenIcon(): JSX.Element {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" {...stroke} aria-hidden>
-      <rect x="2" y="4" width="20" height="13" rx="2" />
-      <path d="M8 21h8M12 17v4" />
-    </svg>
-  );
-}
-
-function HangUpIcon(): JSX.Element {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" {...stroke} aria-hidden>
-      <path d="M3 11a12 12 0 0 1 18 0l-2.5 2.5-3-1.5v-2a10 10 0 0 0-7 0v2l-3 1.5z" />
-    </svg>
-  );
-}
-
-function SpeakerIcon(): JSX.Element {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" {...stroke} className="text-mist-400" aria-hidden>
-      <path d="M4 9v6h4l5 4V5L8 9H4zM17 9a4 4 0 0 1 0 6" />
-    </svg>
-  );
-}
-
-function MutedIcon(): JSX.Element {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" {...stroke} className="text-alert-500" aria-hidden>
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M5 11a7 7 0 0 0 14 0M4 4l16 16" />
-    </svg>
   );
 }

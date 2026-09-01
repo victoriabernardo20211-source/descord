@@ -38,11 +38,11 @@ export function AddServerDialog({ onClose }: { onClose: () => void }): JSX.Eleme
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-975/80 p-6"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-ink-700 bg-ink-850 p-6 shadow-2xl"
+        className="w-full max-w-sm rounded-2xl border border-ink-800 bg-ink-900 p-7 shadow-[0_24px_60px_rgba(0,0,0,.55)]"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="text-base font-semibold">Adicionar servidor</h2>

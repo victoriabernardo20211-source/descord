@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import type { DirectMessage, Message } from '@nexus/shared';
 import { Avatar } from './Avatar';
 import { ExpiryBadge } from './ExpiryBadge';
+import { Icon } from './Icon';
 import { renderMarkdown } from '../lib/markdown';
 import { formatDay, formatTime } from '../lib/time';
 import { decryptAttachment } from '../lib/crypto-files';
@@ -50,13 +51,17 @@ export function MessageList({ messages, pending, onLoadOlder }: Props): JSX.Elem
   return (
     <div
       ref={scroller}
-      className="flex-1 overflow-y-auto px-4 py-4"
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto py-4"
       onScroll={(event) => {
         const el = event.currentTarget;
         atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         if (el.scrollTop < 120) onLoadOlder();
       }}
     >
+      {/* Empurra o histórico curto para baixo: conversa se lê de baixo para
+          cima, e uma lista de três mensagens colada no topo parece um erro. */}
+      <div className="flex-1" />
+
       {messages.map((message, index) => {
         const previous = messages[index - 1];
         const grouped = isGrouped(previous, message);
@@ -68,53 +73,57 @@ export function MessageList({ messages, pending, onLoadOlder }: Props): JSX.Elem
         return (
           <div key={message.id}>
             {newDay && (
-              <div className="my-4 flex items-center gap-3">
-                <div className="h-px flex-1 bg-ink-700" />
-                <span className="text-[11px] font-medium uppercase tracking-wide text-mist-400">
-                  {formatDay(message.createdAt)}
+              <div className="flex items-center gap-2.5 px-[18px] pb-2 pt-3.5">
+                <div className="h-px flex-1 bg-ink-800" />
+                <span className="text-[10.5px] font-bold tracking-[0.07em] text-mist-500">
+                  {formatDay(message.createdAt).toUpperCase()}
                 </span>
-                <div className="h-px flex-1 bg-ink-700" />
+                <div className="h-px flex-1 bg-ink-800" />
               </div>
             )}
 
             <div
-              className={`group relative flex gap-3 rounded px-2 hover:bg-ink-850/60 ${grouped ? 'py-0.5' : 'mt-3 py-1'}`}
+              className={`group relative px-[18px] hover:bg-ink-900/70 ${grouped ? 'py-0.5' : 'pb-1 pt-2'}`}
             >
-              {grouped ? (
-                <span className="w-10 shrink-0 pt-1 text-right text-[10px] text-mist-400 opacity-0 group-hover:opacity-100">
-                  {formatTime(message.createdAt)}
-                </span>
-              ) : (
-                <Avatar name={message.author.displayName} url={message.author.avatarUrl} />
-              )}
+              <div className="flex gap-3.5">
+                <div className="flex w-10 shrink-0 justify-center">
+                  {grouped ? (
+                    <span className="pt-[3px] text-[10px] tabular-nums text-mist-500 opacity-0 group-hover:opacity-100">
+                      {formatTime(message.createdAt)}
+                    </span>
+                  ) : (
+                    <Avatar
+                      name={message.author.displayName}
+                      url={message.author.avatarUrl}
+                      size={40}
+                    />
+                  )}
+                </div>
 
               <div className="min-w-0 flex-1">
                 {!grouped && (
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <span className="font-semibold text-mist-50">
+                  <div className="flex flex-wrap items-baseline gap-2 leading-tight">
+                    <span className="text-[14.5px] font-semibold text-mist-50">
                       {message.author.displayName}
                     </span>
-                    <span className="text-[11px] text-mist-400">
+                    <span className="text-[11px] text-mist-500">
                       {formatTime(message.createdAt)}
                     </span>
                     {message.editedAt && (
-                      <span className="text-[11px] text-mist-400">(editada)</span>
+                      <span className="text-[11px] text-mist-500">(editada)</span>
                     )}
                     {message.expiresAt && <ExpiryBadge expiresAt={message.expiresAt} />}
                   </div>
                 )}
 
                 {message.decryptionFailed ? (
-                  <div className="flex items-center gap-2 rounded-md border border-ink-600 bg-ink-850 px-3 py-2 text-xs text-mist-400">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-                      <rect x="4" y="10" width="16" height="11" rx="2" />
-                      <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeLinecap="round" />
-                    </svg>
+                  <div className="mt-1 flex w-fit items-center gap-2 rounded-lg border border-ink-700 bg-ink-850 px-3 py-2 text-xs text-mist-400">
+                    <Icon name="lock" size={13} strokeWidth={2.2} />
                     Não foi possível abrir esta mensagem: ela foi enviada antes deste
                     computador entrar na conversa.
                   </div>
                 ) : (
-                  <div className="text-mist-200">
+                  <div className="text-[14.5px] leading-[1.45] text-mist-200 [word-break:break-word]">
                     {renderMarkdown(message.content, resolveMention)}
                   </div>
                 )}
@@ -128,15 +137,15 @@ export function MessageList({ messages, pending, onLoadOlder }: Props): JSX.Elem
                 )}
 
                 {message.reactions.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {message.reactions.map((reaction) => (
                       <button
                         key={reaction.emoji}
                         onClick={() => void react(message.id, reaction.emoji, !reaction.me)}
-                        className={`rounded-md border px-1.5 py-0.5 text-xs transition-colors ${
+                        className={`flex h-[23px] items-center gap-1.5 rounded-[7px] border px-[7px] text-[12.5px] font-semibold transition-colors ${
                           reaction.me
                             ? 'border-pulse-500 bg-pulse-500/20 text-pulse-300'
-                            : 'border-ink-600 bg-ink-800 text-mist-200 hover:border-ink-500'
+                            : 'border-ink-700 bg-ink-850 text-mist-200 hover:border-ink-600'
                         }`}
                       >
                         {reaction.emoji} {reaction.count}
@@ -152,13 +161,16 @@ export function MessageList({ messages, pending, onLoadOlder }: Props): JSX.Elem
                 )}
               </div>
 
+              </div>
+
               {message.author.id === me?.id && (
                 <button
                   onClick={() => void deleteMessage(message.id)}
+                  title="Apagar mensagem"
                   aria-label="Apagar mensagem"
-                  className="absolute right-2 top-1 hidden rounded p-1 text-mist-400 hover:bg-ink-700 hover:text-alert-500 group-hover:block"
+                  className="absolute right-3 top-1 hidden rounded-md border border-ink-700 bg-ink-850 p-1.5 text-mist-400 transition-colors hover:text-alert-500 group-hover:block"
                 >
-                  ✕
+                  <Icon name="x" size={13} />
                 </button>
               )}
             </div>
@@ -167,12 +179,12 @@ export function MessageList({ messages, pending, onLoadOlder }: Props): JSX.Elem
       })}
 
       {pending.map((item) => (
-        <div key={item.clientMessageId} className="mt-3 flex gap-3 px-2 opacity-60">
-          <div className="w-10" />
+        <div key={item.clientMessageId} className="flex gap-3.5 px-[18px] pt-2 opacity-60">
+          <div className="w-10 shrink-0" />
           <div className="min-w-0 flex-1">
-            <div className="text-mist-200">{item.content}</div>
+            <div className="text-[14.5px] leading-[1.45] text-mist-200">{item.content}</div>
             <span
-              className={`text-[11px] ${item.status === 'failed' ? 'text-alert-500' : 'text-mist-400'}`}
+              className={`text-[11px] ${item.status === 'failed' ? 'text-alert-500' : 'text-mist-500'}`}
             >
               {item.status === 'failed' ? 'Falha ao enviar' : 'Enviando…'}
             </span>
@@ -210,7 +222,7 @@ function AttachmentPreview({ attachment }: { attachment: DecryptedAttachment }):
 
   if (failed) {
     return (
-      <span className="rounded-lg border border-ink-700 bg-ink-850 px-3 py-2 text-xs text-mist-400">
+      <span className="rounded-lg border border-ink-700 bg-ink-850 px-3 py-2 text-xs text-mist-500">
         Não foi possível abrir {attachment.fileName}
       </span>
     );
@@ -231,12 +243,19 @@ function AttachmentPreview({ attachment }: { attachment: DecryptedAttachment }):
         else setFailed(true);
       }}
       title={attachment.fileName}
-      className="max-w-xs overflow-hidden rounded-lg border border-ink-700 bg-ink-850 text-left transition-colors hover:border-ink-500"
+      className="mt-1.5 max-w-xs overflow-hidden rounded-lg border border-ink-700 bg-ink-850 text-left transition-colors hover:border-ink-600"
     >
       {isImage ? (
         <LazyImage attachment={attachment} onFail={() => setFailed(true)} />
       ) : (
-        <span className="block px-3 py-2 text-xs text-mist-200">📎 {attachment.fileName}</span>
+        <span className="flex items-center gap-2.5 px-3 py-2.5">
+          <Icon name="file" size={20} strokeWidth={1.8} className="shrink-0 text-pulse-300" />
+          <span className="min-w-0">
+            <span className="block truncate text-[13px] text-pulse-300">{attachment.fileName}</span>
+            <span className="block text-[11px] text-mist-500">{formatSize(attachment.size)}</span>
+          </span>
+          <Icon name="download" size={17} className="shrink-0 text-mist-400" />
+        </span>
       )}
     </button>
   );
@@ -298,4 +317,16 @@ function LazyImage({
   }
 
   return <img src={src} alt={attachment.fileName} className="max-h-64 w-full object-cover" />;
+}
+
+/** Tamanho legível de arquivo: uma casa decimal só quando ela informa algo. */
+function formatSize(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value >= 10 || unit === 0 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`;
 }

@@ -58,8 +58,8 @@ export function ScreenSharePicker({ onCancel, onShare }: Props): JSX.Element {
     );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-6">
-      <div className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-ink-700 bg-ink-850 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-975/80 p-6">
+      <div className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-ink-800 bg-ink-900 shadow-[0_24px_60px_rgba(0,0,0,.55)]">
         <header className="border-b border-ink-700 px-6 py-4">
           <h2 className="text-lg font-semibold">Compartilhar tela</h2>
           <p className="mt-0.5 text-sm text-mist-400">
@@ -87,7 +87,7 @@ export function ScreenSharePicker({ onCancel, onShare }: Props): JSX.Element {
                 onChange={(e) =>
                   setQuality({ ...quality, height: Number(e.target.value) as StreamQuality['height'] })
                 }
-                className="rounded-md border border-ink-600 bg-ink-900 px-2 py-1 text-sm"
+                className="rounded-md border border-ink-700 bg-ink-975 px-2 py-1 text-sm"
               >
                 {HEIGHTS.map((h) => (
                   <option key={h} value={h}>
@@ -104,7 +104,7 @@ export function ScreenSharePicker({ onCancel, onShare }: Props): JSX.Element {
                 onChange={(e) =>
                   setQuality({ ...quality, fps: Number(e.target.value) as StreamQuality['fps'] })
                 }
-                className="rounded-md border border-ink-600 bg-ink-900 px-2 py-1 text-sm"
+                className="rounded-md border border-ink-700 bg-ink-975 px-2 py-1 text-sm"
               >
                 {RATES.map((f) => (
                   <option key={f} value={f}>

@@ -3,6 +3,7 @@ import type { EncryptedFile } from '@nexus/shared';
 import { encryptAttachment } from '../lib/crypto-files';
 import type { JSX } from 'react';
 import { useApp } from '../store/app';
+import { Icon } from './Icon';
 
 interface Props {
   placeholder: string;
@@ -83,7 +84,7 @@ export function Composer({ placeholder, disabled }: Props): JSX.Element {
   }
 
   return (
-    <div className="px-4 pb-5">
+    <div className="shrink-0 px-4 pb-[18px]">
       <div
         onDragOver={(event) => {
           event.preventDefault();
@@ -95,8 +96,8 @@ export function Composer({ placeholder, disabled }: Props): JSX.Element {
           setDragging(false);
           setFiles((current) => [...current, ...Array.from(event.dataTransfer.files)].slice(0, 10));
         }}
-        className={`rounded-xl border bg-ink-800 transition-colors ${
-          dragging ? 'border-pulse-400 bg-pulse-500/5' : 'border-ink-700'
+        className={`rounded-[10px] border bg-ink-850 transition-colors ${
+          dragging ? 'border-pulse-400 bg-pulse-500/5' : 'border-ink-800'
         }`}
       >
         {dragging && (
@@ -108,28 +109,30 @@ export function Composer({ placeholder, disabled }: Props): JSX.Element {
             {files.map((file, index) => (
               <span
                 key={`${file.name}-${index}`}
-                className="flex items-center gap-2 rounded-md bg-ink-700 px-2 py-1 text-xs text-mist-200"
+                className="flex items-center gap-2 rounded-md bg-ink-800 px-2 py-1 text-xs text-mist-200"
               >
+                <Icon name="file" size={13} className="text-pulse-300" />
                 {file.name}
                 <button
                   aria-label={`Remover ${file.name}`}
                   onClick={() => setFiles((c) => c.filter((_, i) => i !== index))}
-                  className="text-mist-400 hover:text-alert-500"
+                  className="text-mist-400 transition-colors hover:text-alert-500"
                 >
-                  ✕
+                  <Icon name="x" size={12} />
                 </button>
               </span>
             ))}
           </div>
         )}
 
-        <div className="flex items-end gap-2 px-3 py-2">
+        <div className="flex min-h-11 items-center gap-2.5 px-3 py-1">
           <button
+            title="Anexar arquivo"
             aria-label="Anexar arquivo"
             onClick={() => inputRef.current?.click()}
-            className="rounded-md p-2 text-mist-400 transition-colors hover:bg-ink-700 hover:text-mist-50"
+            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-ink-600 text-mist-200 transition-colors hover:bg-ink-500"
           >
-            +
+            <Icon name="plus" size={14} strokeWidth={2.4} />
           </button>
           <input
             ref={inputRef}
@@ -150,7 +153,7 @@ export function Composer({ placeholder, disabled }: Props): JSX.Element {
             rows={1}
             placeholder={placeholder}
             aria-label="Mensagem"
-            className="max-h-40 flex-1 resize-none bg-transparent py-2 text-mist-50 placeholder:text-mist-400 focus:outline-none"
+            className="max-h-40 flex-1 resize-none self-center bg-transparent py-2.5 text-[14.5px] leading-[1.35] text-mist-50 placeholder:text-mist-500 focus:outline-none"
             onChange={(event) => {
               setValue(event.target.value);
               event.target.style.height = 'auto';
@@ -180,7 +183,9 @@ export function Composer({ placeholder, disabled }: Props): JSX.Element {
           <button
             onClick={() => void submit()}
             disabled={disabled || uploading}
-            className="rounded-md bg-pulse-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-pulse-400 disabled:opacity-40"
+            title="Enviar mensagem"
+            aria-label="Enviar mensagem"
+            className="flex h-8 shrink-0 items-center gap-1.5 self-center rounded-md bg-pulse-500 px-3 text-[13px] font-semibold text-white transition-colors hover:bg-pulse-400 disabled:opacity-40"
           >
             {uploading ? 'Enviando…' : 'Enviar'}
           </button>

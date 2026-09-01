@@ -3,7 +3,7 @@ import type { JSX } from 'react';
 import { ApiError } from '../lib/api';
 import { bridge } from '../lib/bridge';
 import { useApp } from '../store/app';
-import { Logo } from './Connect';
+import { AuthShell, Card, Field, INPUT, PRIMARY } from './Connect';
 
 export function Login(): JSX.Element {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -27,7 +27,6 @@ export function Login(): JSX.Element {
 
   const login = useApp((s) => s.login);
   const register = useApp((s) => s.register);
-  const apiUrl = useApp((s) => s.apiUrl);
 
   async function submit(): Promise<void> {
     setBusy(true);
@@ -69,8 +68,7 @@ export function Login(): JSX.Element {
   ): JSX.Element => {
     const issue = fieldErrors[key];
     return (
-      <label className="mt-4 block text-xs font-medium uppercase tracking-wide text-mist-400">
-        {label}
+      <Field label={label}>
         <input
           type={type}
           value={form[key]}
@@ -83,58 +81,55 @@ export function Login(): JSX.Element {
             if (issue) setFieldErrors((current) => ({ ...current, [key]: '' }));
           }}
           onKeyDown={(event) => event.key === 'Enter' && void submit()}
-          className={`mt-1.5 w-full rounded-lg border bg-ink-900 px-3 py-2 text-sm normal-case tracking-normal text-mist-50 focus:outline-none ${
-            issue ? 'border-alert-500' : 'border-ink-600 focus:border-pulse-400'
-          }`}
+          className={`${INPUT} ${issue ? 'border-alert-500' : ''}`}
         />
         {issue ? (
-          <span className="mt-1 block normal-case tracking-normal text-[11px] text-alert-500">
-            {issue}
-          </span>
+          <span className="text-[11px] text-alert-500">{issue}</span>
         ) : (
-          hint && (
-            <span className="mt-1 block normal-case tracking-normal text-[11px]">{hint}</span>
-          )
+          hint && <span className="text-[11px] text-mist-500">{hint}</span>
         )}
-      </label>
+      </Field>
     );
   };
 
+  const isLogin = mode === 'login';
+
   return (
-    <div className="flex h-full items-center justify-center bg-ink-900">
-      <div className="w-[420px] rounded-2xl border border-ink-700 bg-ink-850 p-8 shadow-2xl">
-        <Logo />
-        <h1 className="mt-5 text-xl font-semibold">
-          {mode === 'login' ? 'Bem-vindo de volta' : 'Criar conta'}
-        </h1>
-        <p className="mt-1 text-sm text-mist-400">{apiUrl}</p>
+    <AuthShell width={isLogin ? 392 : 420}>
+      <Card>
+        <div className="flex flex-col items-center gap-1.5">
+          <h1 className="text-[19px] font-semibold text-mist-50">
+            {isLogin ? 'Bem-vindo de volta' : 'Criar sua conta'}
+          </h1>
+          {isLogin && (
+            <p className="text-[13px] text-mist-400">Que bom te ver de novo por aqui.</p>
+          )}
+        </div>
 
         {field('E-mail', 'email', 'email')}
-        {mode === 'register' && field('Nome de usuário', 'username', 'text', 'minúsculas, sem espaços')}
-        {mode === 'register' && field('Nome de exibição', 'displayName')}
-        {field('Senha', 'password', 'password', mode === 'register' ? 'mínimo 10 caracteres' : undefined)}
-        {mode === 'register' && field('Código de convite', 'inviteCode', 'text', 'se o servidor exigir')}
+        {!isLogin && field('Nome de usuário', 'username', 'text', 'minúsculas, sem espaços')}
+        {!isLogin && field('Nome de exibição', 'displayName')}
+        {field('Senha', 'password', 'password', isLogin ? undefined : 'mínimo 10 caracteres')}
+        {!isLogin && field('Código de convite', 'inviteCode', 'text', 'se o servidor exigir')}
 
-        {error && <p className="mt-3 text-sm text-alert-500">{error}</p>}
+        {error && <p className="text-[12.5px] text-alert-500">{error}</p>}
 
-        <button
-          disabled={busy}
-          onClick={() => void submit()}
-          className="mt-6 w-full rounded-lg bg-pulse-500 py-2.5 font-medium text-white transition-colors hover:bg-pulse-400 disabled:opacity-40"
-        >
-          {busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}
+        <button disabled={busy} onClick={() => void submit()} className={PRIMARY}>
+          {busy ? 'Aguarde…' : isLogin ? 'Entrar' : 'Criar conta'}
         </button>
 
         <button
           onClick={() => {
-            setMode(mode === 'login' ? 'register' : 'login');
+            setMode(isLogin ? 'register' : 'login');
             setError(null);
+            setFieldErrors({});
           }}
-          className="mt-4 w-full text-sm text-mist-400 hover:text-mist-50"
+          className="text-center text-[12.5px] text-mist-400 transition-colors hover:text-mist-200"
         >
-          {mode === 'login' ? 'Não tenho conta ainda' : 'Já tenho uma conta'}
+          {isLogin ? 'Precisa de uma conta? ' : 'Já possui conta? '}
+          <span className="text-pulse-300">{isLogin ? 'Criar conta' : 'Entrar'}</span>
         </button>
-      </div>
-    </div>
+      </Card>
+    </AuthShell>
   );
 }

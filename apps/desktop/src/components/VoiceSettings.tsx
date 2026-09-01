@@ -81,11 +81,11 @@ export function VoiceSettings({ onClose }: { onClose: () => void }): JSX.Element
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-975/80 p-6"
       onClick={onClose}
     >
       <div
-        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl border border-ink-700 bg-ink-850 p-6 shadow-2xl"
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-ink-800 bg-ink-900 p-7 shadow-[0_24px_60px_rgba(0,0,0,.55)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between">
