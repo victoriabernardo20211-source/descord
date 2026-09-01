@@ -6,6 +6,7 @@ import {
   ipcMain,
   Notification,
   screen,
+  session,
   shell,
 } from 'electron';
 import { join } from 'node:path';
@@ -251,6 +252,55 @@ ipcMain.handle('screen:sources', async () => {
     });
 });
 
+/**
+ * Fonte escolhida no nosso seletor, aguardando a captura começar.
+ *
+ * O áudio do sistema no Windows só vem por `audio: 'loopback'`, que é entregue
+ * aqui pelo processo principal — o renderer não tem como pedi-lo sozinho. Por
+ * isso a captura passa a usar `getDisplayMedia`, mas sem abrir seletor nenhum:
+ * respondemos com a fonte que a pessoa já escolheu.
+ */
+let pendingShare: { sourceId: string; withAudio: boolean } | null = null;
+
+ipcMain.handle('screen:prepare', (_event, input: unknown) => {
+  const { sourceId, withAudio } = (input ?? {}) as { sourceId?: unknown; withAudio?: unknown };
+  if (typeof sourceId !== 'string') return { ok: false };
+  pendingShare = { sourceId, withAudio: withAudio === true };
+  return { ok: true };
+});
+
+function installDisplayMediaHandler(): void {
+  session.defaultSession.setDisplayMediaRequestHandler(
+    (_request, callback) => {
+      const requested = pendingShare;
+      pendingShare = null;
+
+      if (!requested) {
+        // Nenhuma escolha registrada: recusamos em vez de capturar algo ao acaso.
+        callback({});
+        return;
+      }
+
+      void desktopCapturer
+        .getSources({ types: ['screen', 'window'] })
+        .then((sources) => {
+          const source = sources.find((s) => s.id === requested.sourceId);
+          if (!source) {
+            callback({});
+            return;
+          }
+          callback({
+            video: source,
+            ...(requested.withAudio ? { audio: 'loopback' as const } : {}),
+          });
+        })
+        .catch(() => callback({}));
+    },
+    // Nosso seletor já cuidou da escolha; o do sistema só confundiria.
+    { useSystemPicker: false },
+  );
+}
+
 // ── Push-to-talk ───────────────────────────────────────────────────────────
 
 let pushToTalkKey: string | null = null;
@@ -309,7 +359,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.whenReady().then(() => {
-  // CSP em runtime: nem o renderer nem conteúdo carregado podem puxar script externo.
+  installDisplayMediaHandler();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

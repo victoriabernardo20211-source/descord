@@ -1,3 +1,4 @@
+import { bridge } from './bridge';
 import {
   ConnectionState,
   LocalParticipant,
@@ -182,14 +183,13 @@ export class VoiceConnection {
   /**
    * Publica a tela escolhida no nosso seletor.
    *
-   * Usamos `getUserMedia` com as constraints legadas do Chromium
-   * (`chromeMediaSource: 'desktop'`), e NÃO `getDisplayMedia`: este último abre
-   * o seletor do próprio sistema, ignorando a fonte que a pessoa já escolheu.
-   * Os dois formatos de constraint também não podem ser misturados — fazê-lo
-   * gera "Malformed constraint" e nada é capturado.
+   * A captura passa por `getDisplayMedia`, mas nenhum seletor do sistema abre:
+   * o processo principal responde com a fonte que a pessoa já escolheu, e é
+   * ele que anexa o áudio em modo `loopback` — único caminho pelo qual o som do
+   * sistema é capturado no Windows.
    *
-   * Sem permissão STREAM o SFU recusa a publicação, mesmo com a captura local
-   * tendo funcionado.
+   * Sem permissão STREAM o SFU recusa a publicação, mesmo que a captura local
+   * tenha funcionado.
    */
   async startScreenShare(
     sourceId: string,
@@ -205,24 +205,14 @@ export class VoiceConnection {
           ? VideoPresets.h1080
           : VideoPresets.h720;
 
-    const constraints = {
-      // O áudio da tela não leva sourceId: no Windows ele captura o som do
-      // sistema, e funciona de forma mais confiável com o monitor inteiro do
-      // que com uma janela específica.
-      audio: withAudio ? { mandatory: { chromeMediaSource: 'desktop' } } : false,
-      video: {
-        mandatory: {
-          chromeMediaSource: 'desktop',
-          chromeMediaSourceId: sourceId,
-          maxWidth: preset.resolution.width,
-          maxHeight: preset.resolution.height,
-          maxFrameRate: quality.fps,
-        },
-      },
-    } as unknown as MediaStreamConstraints;
+    const video = {
+      width: { ideal: preset.resolution.width },
+      height: { ideal: preset.resolution.height },
+      frameRate: { ideal: quality.fps, max: quality.fps },
+    };
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await this.captureScreen(sourceId, video, withAudio);
       const videoTrack = stream.getVideoTracks()[0];
       if (!videoTrack) throw new Error('A fonte escolhida não forneceu vídeo.');
 
@@ -244,11 +234,10 @@ export class VoiceConnection {
         if (audioPublication) this.screenPublications.push(audioPublication);
       }
 
-      // Quem para pelo próprio sistema operacional também precisa parar aqui.
+      // Parar pelo aviso do próprio sistema também precisa parar aqui.
       videoTrack.addEventListener('ended', () => void this.stopScreenShare());
 
       this.streaming = true;
-      this.error = null;
     } catch (err) {
       this.localScreenStream = null;
       this.streaming = false;
@@ -256,6 +245,32 @@ export class VoiceConnection {
         err instanceof Error ? err.message : 'Não foi possível iniciar a transmissão.';
     }
     this.refreshPeers();
+  }
+
+  /**
+   * O áudio do sistema falha em várias situações no Windows — capturar uma
+   * janela em vez do monitor inteiro é a mais comum. Quando isso acontece,
+   * transmitimos só o vídeo e avisamos, em vez de deixar a transmissão inteira
+   * cair por causa do som.
+   */
+  private async captureScreen(
+    sourceId: string,
+    video: MediaTrackConstraints,
+    withAudio: boolean,
+  ): Promise<MediaStream> {
+    if (withAudio) {
+      await bridge.prepareScreenShare(sourceId, true);
+      try {
+        return await navigator.mediaDevices.getDisplayMedia({ video, audio: true });
+      } catch {
+        this.error =
+          'Não foi possível capturar o áudio da tela. Transmitindo só o vídeo — ' +
+          'compartilhar o monitor inteiro costuma funcionar melhor que uma janela.';
+      }
+    }
+
+    await bridge.prepareScreenShare(sourceId, false);
+    return navigator.mediaDevices.getDisplayMedia({ video, audio: false });
   }
 
   async stopScreenShare(): Promise<void> {

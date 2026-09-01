@@ -18,6 +18,10 @@ const api = {
   /** Fontes de compartilhamento de tela, com miniatura. */
   screenSources: (): Promise<ScreenSource[]> => ipcRenderer.invoke('screen:sources'),
 
+  /** Informa ao processo principal qual fonte capturar antes de iniciar a captura. */
+  prepareScreenShare: (sourceId: string, withAudio: boolean): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('screen:prepare', { sourceId, withAudio }),
+
   /** Registra (ou limpa) o atalho global de push-to-talk. */
   setPushToTalk: (accelerator: string | null): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('ptt:set', accelerator),

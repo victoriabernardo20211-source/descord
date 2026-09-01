@@ -44,6 +44,7 @@ const fallback: NexusBridge = {
   },
   setBadge: async () => false,
   screenSources: async () => [],
+  prepareScreenShare: async () => ({ ok: false }),
   setPushToTalk: async () => ({ ok: false }),
   onPushToTalk: () => () => undefined,
 
