@@ -235,13 +235,16 @@ export const useApp = create<AppState>((set, get) => ({
 
   boot: async () => {
     const config = await bridge.getConfig();
-    if (!config.apiUrl) {
+    // Um instalador pode vir com o servidor embutido (VITE_DEFAULT_SERVER_URL),
+    // para que quem recebe o .exe só instale, abra e entre.
+    const apiUrl = config.apiUrl ?? (import.meta.env.VITE_DEFAULT_SERVER_URL as string | undefined);
+    if (!apiUrl) {
       set({ status: 'needs-server' });
       return;
     }
 
-    const api = new ApiClient(config.apiUrl);
-    set({ api, apiUrl: config.apiUrl });
+    const api = new ApiClient(apiUrl);
+    set({ api, apiUrl });
 
     const health = await api.syncClock().catch(() => ({ ok: false }));
     if (!health.ok) {

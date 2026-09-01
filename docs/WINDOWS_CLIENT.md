@@ -22,29 +22,47 @@ Para rodar em desenvolvimento: `pnpm --filter @nexus/desktop dev`.
 
 ## Gerando o instalador
 
-```bash
+```powershell
 pnpm release:windows
 ```
+
+Saída: `apps\desktop\release\Nexus-Setup-0.1.0.exe`.
+
+### Com o servidor já embutido (recomendado)
+
+Assim quem recebe o instalador não precisa digitar endereço nenhum — instala, abre e
+já cai na tela de login:
+
+```powershell
+$env:VITE_DEFAULT_SERVER_URL = "http://100.119.135.125"
+pnpm release:windows
+```
+
+Troque pelo IP Tailscale do **seu** servidor. Quem já tiver usado o app antes mantém o
+endereço que salvou; o valor embutido só vale na primeira execução.
 
 Saída: `apps/desktop/release/Nexus-Setup-0.1.0.exe`.
 
 O instalador NSIS cria atalho na área de trabalho, atalho no menu Iniciar e um desinstalador,
 e permite escolher a pasta de instalação.
 
-### Embutindo o endereço do servidor
-
-Por padrão o app pergunta o endereço na primeira execução. Para entregar aos amigos já
-configurado, defina o valor padrão em `apps/desktop/src/store/app.ts` (no `boot()`, quando
-`config.apiUrl` estiver ausente) antes de buildar — assim eles só instalam, abrem e entram.
-
 ## Instalando (o que seus amigos fazem)
 
-1. Baixar `Nexus-Setup-0.1.0.exe`.
+**Antes de tudo, o Tailscale.** O servidor não existe na internet pública — só dentro da
+rede privada. Sem o Tailscale conectado, o app não acha o servidor.
+
+1. Você convida a pessoa: painel do Tailscale → **Users → Invite external user** → mande o
+   link. Ela instala o Tailscale (https://tailscale.com/download), aceita o convite e
+   entra com a conta dela.
+2. Baixar `Nexus-Setup-0.1.0.exe`.
 2. Executar. O Windows SmartScreen vai avisar que o app não é assinado — **Mais informações →
    Executar assim mesmo**. (É esperado: assinar exige um certificado de code signing pago.)
 3. Abrir o Nexus.
-4. Informar o endereço do servidor, se ele não vier embutido.
-5. Criar a conta com o código de convite que você passou.
+4. Informar o endereço do servidor, se ele não vier embutido no instalador.
+5. Criar a conta com o código de convite do servidor (`REGISTRATION_INVITE_CODE`).
+
+Se o app disser "Não foi possível conectar ao servidor", a causa quase sempre é o
+Tailscale desconectado nessa máquina.
 
 ## Desinstalando
 

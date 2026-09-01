@@ -5,6 +5,7 @@ import { Avatar } from '../components/Avatar';
 import { Composer } from '../components/Composer';
 import { MessageList } from '../components/MessageList';
 import { TypingIndicator } from '../components/TypingIndicator';
+import { AddServerDialog } from '../components/AddServerDialog';
 import { ScreenSharePicker } from '../components/ScreenSharePicker';
 import { StreamView } from '../components/StreamView';
 import { useApp } from '../store/app';
@@ -46,8 +47,7 @@ function ServerRail(): JSX.Element {
   const view = useApp((s) => s.view);
   const openServer = useApp((s) => s.openServer);
   const openFriends = useApp((s) => s.openFriends);
-  const createServer = useApp((s) => s.createServer);
-  const joinServer = useApp((s) => s.joinServer);
+  const [adding, setAdding] = useState(false);
 
   return (
     <nav className="flex w-rail shrink-0 flex-col items-center gap-2 bg-ink-950 py-3">
@@ -99,25 +99,15 @@ function ServerRail(): JSX.Element {
       </div>
 
       <button
-        onClick={async () => {
-          const answer = window.prompt(
-            'Digite o nome de um servidor novo, ou cole um código de convite:',
-          );
-          if (!answer) return;
-          try {
-            // Um código de convite não tem espaços e é curto — heurística simples.
-            if (!answer.includes(' ') && answer.length <= 16) await joinServer(answer);
-            else await createServer(answer);
-          } catch (err) {
-            useApp.getState().setError(err instanceof Error ? err.message : 'Falhou.');
-          }
-        }}
+        onClick={() => setAdding(true)}
         title="Adicionar servidor"
         aria-label="Adicionar servidor"
         className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ink-800 text-xl text-signal-500 transition-all hover:rounded-xl hover:bg-signal-500 hover:text-white"
       >
         +
       </button>
+
+      {adding && <AddServerDialog onClose={() => setAdding(false)} />}
     </nav>
   );
 }
