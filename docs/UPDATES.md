@@ -93,6 +93,19 @@ O script copia o instalador primeiro e o `latest.yml` depois. A ordem importa:
 ao contrário, um cliente que checasse nesse intervalo tentaria baixar um arquivo
 que ainda não existe.
 
+## Quando não atualiza
+
+Abra **Configurações de voz → Atualização** no app que não atualizou. A tela
+separa as três causas, que têm o mesmo sintoma:
+
+| O que aparece | O que é |
+|---|---|
+| `Feed: não configurado` | O instalador foi gerado sem `NEXUS_UPDATE_URL`. Esse app nunca vai procurar atualização — é preciso gerar de novo e reinstalar na mão, uma vez. |
+| `Falhou ao procurar: …` | O feed está configurado mas o servidor não respondeu. Quase sempre Tailscale desligado. |
+| `Você está na versão mais recente` | O app procurou e não achou nada novo — provavelmente a versão em `package.json` não subiu. |
+
+O botão **Procurar agora** força a verificação sem esperar as 6 horas.
+
 ## Instalador não assinado
 
 O instalador não tem certificado de assinatura (é pago). Consequências:

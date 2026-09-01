@@ -87,21 +87,21 @@ export function CallView({ channelId }: { channelId: string }): JSX.Element {
             }}
           >
             {peers.map((peer) => (
-              <button
+              <div
                 key={peer.userId}
                 onClick={() => peer.streaming && watchStream(peer.userId)}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   openMenu(peer, event);
                 }}
-                className={`min-h-0 text-left ${peer.streaming ? 'cursor-zoom-in' : 'cursor-default'}`}
+                className={`min-h-0 ${peer.streaming ? 'cursor-zoom-in' : ''}`}
               >
                 <Tile
                   peer={peer}
                   isSelf={peer.userId === me?.id}
                   onMenu={(event) => openMenu(peer, event)}
                 />
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -198,8 +198,9 @@ function Tile({
         )}
       </span>
 
-      {/* Botão explícito além do clique direito: nem todo mundo tenta o direito,
-          e num quadradinho sem nada escrito ninguém adivinha que há menu. */}
+      {/* Sempre visível, e não só ao passar o mouse: um menu que ninguém acha
+          é um menu que não existe. O clique direito no quadradinho também abre,
+          para quem prefere. */}
       <button
         onClick={(event) => {
           event.stopPropagation();
@@ -207,7 +208,7 @@ function Tile({
         }}
         title={`Opções de ${peer.displayName}`}
         aria-label={`Opções de ${peer.displayName}`}
-        className="absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-md bg-ink-975/70 text-mist-200 opacity-0 transition-opacity hover:text-mist-50 focus:opacity-100 group-hover/tile:opacity-100"
+        className="absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-md bg-ink-975/70 text-mist-400 transition-colors hover:bg-ink-800 hover:text-mist-50"
       >
         <Icon name="more" size={16} />
       </button>

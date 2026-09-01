@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import { MicLevelMeter } from '../lib/mic-level';
 import { voice } from '../lib/voice';
 import { useApp } from '../store/app';
+import { UpdateStatusCard } from './UpdateStatusCard';
 
 interface Settings {
   inputDeviceId: string | null;
@@ -230,6 +231,10 @@ export function VoiceSettings({ onClose }: { onClose: () => void }): JSX.Element
           <p className="mt-1 text-[11px] text-mist-400">
             Alterações valem na próxima vez que você entrar num canal de voz.
           </p>
+        </Section>
+
+        <Section title="Atualização">
+          <UpdateStatusCard />
         </Section>
       </div>
     </div>

@@ -1,5 +1,16 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+export interface UpdateStatus {
+  version: string;
+  packaged: boolean;
+  feedUrl: string | null;
+  checking: boolean;
+  lastCheck: string | null;
+  available: string | null;
+  downloaded: string | null;
+  error: string | null;
+}
+
 /**
  * Superfície mínima exposta ao renderer. Nada de fs, path ou ipcRenderer cru —
  * apenas estas funções nomeadas.
@@ -35,6 +46,11 @@ const api = {
     ipcRenderer.on('ptt:pressed', listener);
     return () => ipcRenderer.removeListener('ptt:pressed', listener);
   },
+
+  /** Situação da atualização automática: versão, feed, última verificação. */
+  updateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:status'),
+  /** Procura agora, sem esperar o próximo ciclo de 6 horas. */
+  checkForUpdate: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:check'),
 
   /** Uma atualização já foi baixada e entra na próxima abertura do app. */
   onUpdateReady: (handler: (version: string) => void): (() => void) => {

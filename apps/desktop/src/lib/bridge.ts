@@ -6,6 +6,18 @@ declare global {
   }
 }
 
+/** Fora do Electron não existe atualizador; a tela diz isso em vez de mentir. */
+const FALLBACK_UPDATE_STATUS = {
+  version: '0.0.0',
+  packaged: false,
+  feedUrl: null,
+  checking: false,
+  lastCheck: null,
+  available: null,
+  downloaded: null,
+  error: null,
+};
+
 export const E2EE_UNAVAILABLE =
   'A criptografia ponta a ponta só funciona no aplicativo instalado.';
 
@@ -48,6 +60,8 @@ const fallback: NexusBridge = {
   setPushToTalk: async () => ({ ok: false }),
   onPushToTalk: () => () => undefined,
   onUpdateReady: () => () => undefined,
+  updateStatus: async () => FALLBACK_UPDATE_STATUS,
+  checkForUpdate: async () => FALLBACK_UPDATE_STATUS,
 
   /**
    * Sem processo principal do Electron não há como guardar chave privada com
