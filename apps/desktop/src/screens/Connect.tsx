@@ -11,7 +11,7 @@ export function Connect(): JSX.Element {
   const apiUrl = useApp((s) => s.apiUrl);
   const error = useApp((s) => s.error);
   const configureServer = useApp((s) => s.configureServer);
-  const [url, setUrl] = useState(apiUrl ?? 'https://');
+  const [url, setUrl] = useState(apiUrl ?? '');
   const [busy, setBusy] = useState(false);
 
   const unreachable = status === 'server-unreachable';
@@ -34,15 +34,19 @@ export function Connect(): JSX.Element {
           <input
             value={url}
             onChange={(event) => setUrl(event.target.value)}
-            placeholder="https://chat.seudominio.com"
+            placeholder="chat.seudominio.com ou 100.x.y.z"
             className="mt-1.5 w-full rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 text-sm normal-case tracking-normal text-mist-50 focus:border-pulse-400 focus:outline-none"
           />
         </label>
 
         {error && <p className="mt-3 text-sm text-alert-500">{error}</p>}
 
+        <p className="mt-1.5 text-[11px] text-mist-400">
+          Pode colar só o endereço — descobrimos sozinhos se é http ou https.
+        </p>
+
         <button
-          disabled={busy || url.trim().length < 8}
+          disabled={busy || url.trim().length < 4}
           onClick={async () => {
             setBusy(true);
             await configureServer(url);

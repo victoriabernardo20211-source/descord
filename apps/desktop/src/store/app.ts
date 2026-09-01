@@ -207,15 +207,30 @@ export const useApp = create<AppState>((set, get) => ({
 
   /** Primeira execução: o app precisa saber onde fica o nosso servidor. */
   configureServer: async (url) => {
-    const clean = url.trim().replace(/\/+$/, '');
-    const api = new ApiClient(clean);
-    const health = await api.syncClock().catch(() => ({ ok: false }));
-    if (!health.ok) {
-      set({ status: 'server-unreachable', error: 'Não foi possível conectar ao servidor.' });
-      return;
+    const typed = url.trim().replace(/\/+$/, '');
+    if (!typed) return;
+
+    // Errar o esquema custou tempo de mais para valer a pena exigir do usuário:
+    // se ele não escrever, tentamos os dois. HTTPS primeiro, HTTP como segunda
+    // opção (é o caso de servidor em rede privada, onde não há certificado).
+    const candidates = /^https?:\/\//i.test(typed)
+      ? [typed]
+      : [`https://${typed}`, `http://${typed}`];
+
+    for (const candidate of candidates) {
+      const api = new ApiClient(candidate);
+      const health = await api.syncClock().catch(() => ({ ok: false }));
+      if (health.ok) {
+        await bridge.setConfig({ apiUrl: candidate });
+        set({ api, apiUrl: candidate, status: 'login', error: null });
+        return;
+      }
     }
-    await bridge.setConfig({ apiUrl: clean });
-    set({ api, apiUrl: clean, status: 'login', error: null });
+
+    set({
+      status: 'server-unreachable',
+      error: 'Não foi possível conectar ao servidor.',
+    });
   },
 
   boot: async () => {
