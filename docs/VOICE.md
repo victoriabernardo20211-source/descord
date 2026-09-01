@@ -49,6 +49,10 @@ LIVEKIT_USE_EXTERNAL_IP=false
 LIVEKIT_WEBHOOK_URL=http://127.0.0.1:4000/api/voice/webhook
 ```
 
+Note que `LIVEKIT_STUN_SERVERS` fica **vazio**: numa rede privada os candidatos diretos
+bastam, e um STUN público só produz erros repetidos de DNS no log do cliente
+(`Failed to resolve address for global.stun.twilio.com`).
+
 `LIVEKIT_NODE_IP` é o detalhe que mais quebra: é o endereço que o LiveKit anuncia nos
 candidatos ICE. Se ele anunciar o IP público enquanto os clientes estão na rede privada,
 a chamada conecta na sinalização e **nunca sai do "conectando"** — sem erro visível.
@@ -58,6 +62,7 @@ a chamada conecta na sinalização e **nunca sai do "conectando"** — sem erro 
 ```ini
 LIVEKIT_URL=wss://livekit.seudominio.com
 LIVEKIT_USE_EXTERNAL_IP=true
+LIVEKIT_STUN_SERVERS='"stun.l.google.com:19302"'
 ```
 
 E libere as portas do WebRTC:

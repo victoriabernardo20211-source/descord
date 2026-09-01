@@ -85,6 +85,10 @@ services:
           udp_port: 7882
           use_external_ip: ${LIVEKIT_USE_EXTERNAL_IP:-true}
           node_ip: ${LIVEKIT_NODE_IP:-}
+          # Vazio por padrão: numa rede privada (Tailscale) o STUN é inútil e o
+          # cliente só enche o log tentando resolver um host que não alcança.
+          # Em servidor público, defina LIVEKIT_STUN_SERVERS='"stun.l.google.com:19302"'.
+          stun_servers: [${LIVEKIT_STUN_SERVERS:-}]
         keys:
           ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
         webhook:

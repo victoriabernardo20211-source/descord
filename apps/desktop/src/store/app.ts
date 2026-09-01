@@ -81,7 +81,12 @@ export interface PendingMessage {
   status: 'sending' | 'failed';
 }
 
-type View = { kind: 'friends' } | { kind: 'dm'; conversationId: string } | { kind: 'server'; serverId: string };
+type View =
+  | { kind: 'friends' }
+  | { kind: 'dm'; conversationId: string }
+  | { kind: 'server'; serverId: string }
+  /** Chamada aberta na área principal, como no canal de voz. */
+  | { kind: 'call'; channelId: string };
 
 interface AppState {
   api: ApiClient | null;
@@ -120,6 +125,8 @@ interface AppState {
   voiceAvailable: boolean;
   /** Stream em destaque na visualização. */
   watchingUserId: string | null;
+  /** O seletor de fonte de tela vive no store: é aberto de dois lugares. */
+  sharePickerOpen: boolean;
 
   messages: Record<string, Message[]>;
   directMessages: Record<string, DecryptedDirectMessage[]>;
@@ -159,6 +166,8 @@ interface AppState {
   startScreenShare: (sourceId: string, quality: StreamQuality, withAudio: boolean) => Promise<void>;
   stopScreenShare: () => Promise<void>;
   watchStream: (userId: string | null) => void;
+  setSharePickerOpen: (open: boolean) => void;
+  openCall: (channelId: string) => void;
   moderateVoice: (userId: string, action: 'mute' | 'unmute' | 'deafen' | 'undeafen' | 'disconnect') => Promise<void>;
 
   createServer: (name: string) => Promise<void>;
@@ -197,6 +206,7 @@ export const useApp = create<AppState>((set, get) => ({
   streaming: false,
   voiceAvailable: false,
   watchingUserId: null,
+  sharePickerOpen: false,
   messages: {},
   directMessages: {},
   pending: {},
@@ -539,6 +549,9 @@ export const useApp = create<AppState>((set, get) => ({
         voiceConnecting: false,
         selfMuted: voice.selfMuted,
         voiceState: { ...get().voiceState, [channelId]: participants },
+        // Sem isto a pessoa entra na chamada e nada muda na tela — foi
+        // exatamente o que fez parecer que o clique não tinha funcionado.
+        view: { kind: 'call', channelId },
       });
     } catch (err) {
       set({
@@ -559,6 +572,7 @@ export const useApp = create<AppState>((set, get) => ({
       voicePeers: [],
       streaming: false,
       watchingUserId: null,
+  sharePickerOpen: false,
       selfMuted: false,
       selfDeafened: false,
     });
@@ -601,6 +615,10 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   watchStream: (userId) => set({ watchingUserId: userId }),
+
+  setSharePickerOpen: (open) => set({ sharePickerOpen: open }),
+
+  openCall: (channelId) => set({ view: { kind: 'call', channelId }, watchingUserId: null }),
 
   moderateVoice: async (userId, action) => {
     await get().api?.post(`/voice/members/${userId}/moderate`, { action });

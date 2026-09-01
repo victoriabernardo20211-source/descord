@@ -180,6 +180,12 @@ A captura de áudio de aplicativo tem limitações no Windows. O caminho mais co
 compartilhar a tela **com áudio do sistema**; áudio por aplicativo específico é menos estável.
 O microfone é uma track independente e continua funcionando de qualquer forma.
 
+### "Failed to resolve address for global.stun.twilio.com" repetindo no log
+
+STUN público sendo anunciado numa rede que não o alcança. Em Tailscale ele é
+desnecessário — deixe `LIVEKIT_STUN_SERVERS=` vazio no `.env` e rode `./scripts/deploy.sh`.
+São mensagens de ruído: não impedem a chamada, mas atrasam a negociação.
+
 ### TURN falhando / não conecta a chamada
 
 Sem TURN, quem está atrás de NAT simétrico não conecta.

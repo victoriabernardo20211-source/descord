@@ -6,8 +6,8 @@ import { Composer } from '../components/Composer';
 import { MessageList } from '../components/MessageList';
 import { TypingIndicator } from '../components/TypingIndicator';
 import { AddServerDialog } from '../components/AddServerDialog';
+import { CallView } from '../components/CallView';
 import { ScreenSharePicker } from '../components/ScreenSharePicker';
-import { StreamView } from '../components/StreamView';
 import { useApp } from '../store/app';
 import { Logo } from './Connect';
 
@@ -258,6 +258,7 @@ function VoiceChannel({
   const voiceChannelId = useApp((s) => s.voiceChannelId);
   const connecting = useApp((s) => s.voiceConnecting);
   const joinVoice = useApp((s) => s.joinVoice);
+  const openCall = useApp((s) => s.openCall);
   const members = useApp((s) => s.serverDetail?.members);
   const active = voiceChannelId === channel.id;
 
@@ -267,7 +268,12 @@ function VoiceChannel({
   return (
     <div>
       <button
-        onClick={() => voiceAvailable && !active && void joinVoice(channel.id)}
+        onClick={() => {
+          if (!voiceAvailable) return;
+          // Já conectado: só traz a chamada de volta para a área principal.
+          if (active) openCall(channel.id);
+          else void joinVoice(channel.id);
+        }}
         disabled={!voiceAvailable || connecting}
         title={
           voiceAvailable
@@ -310,7 +316,8 @@ function VoicePanel(): JSX.Element | null {
   const leaveVoice = useApp((s) => s.leaveVoice);
   const stopScreenShare = useApp((s) => s.stopScreenShare);
   const startScreenShare = useApp((s) => s.startScreenShare);
-  const [picking, setPicking] = useState(false);
+  const picking = useApp((s) => s.sharePickerOpen);
+  const setPicking = useApp((s) => s.setSharePickerOpen);
 
   if (!voiceChannelId) return null;
   const channel = detail?.channels.find((c) => c.id === voiceChannelId);
@@ -418,6 +425,7 @@ function UserPanel(): JSX.Element {
 function MainPane(): JSX.Element {
   const view = useApp((s) => s.view);
   if (view.kind === 'friends') return <FriendsView />;
+  if (view.kind === 'call') return <CallView channelId={view.channelId} />;
   return <ChatView />;
 }
 
@@ -474,8 +482,6 @@ function ChatView(): JSX.Element {
       </header>
 
       {isDm && <PrivacyBanner />}
-
-      <StreamView />
 
       <MessageList
         messages={list}

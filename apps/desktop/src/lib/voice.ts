@@ -53,6 +53,8 @@ export class VoiceConnection {
   streaming = false;
   /** Streams disponíveis para assistir: userId → MediaStream de vídeo. */
   remoteStreams = new Map<string, MediaStream>();
+  /** A própria transmissão, para quem compartilha ver o que está enviando. */
+  localScreenStream: MediaStream | null = null;
   latencyMs = 0;
   error: string | null = null;
 
@@ -130,6 +132,7 @@ export class VoiceConnection {
     this.channelId = null;
     this.peers = [];
     this.remoteStreams.clear();
+    this.localScreenStream = null;
     this.streaming = false;
     this.screenPublications = [];
     this.emit();
@@ -212,6 +215,10 @@ export class VoiceConnection {
       const tracks = await createLocalScreenTracks(options);
       this.screenPublications = [];
       for (const track of tracks) {
+        // Prévia local: sem isto, quem transmite não vê o que está enviando.
+        if (track.kind === Track.Kind.Video) {
+          this.localScreenStream = new MediaStream([track.mediaStreamTrack]);
+        }
         const publication = await this.room.localParticipant.publishTrack(track, {
           simulcast: true,
           videoEncoding: {
@@ -239,6 +246,7 @@ export class VoiceConnection {
       }
     }
     this.screenPublications = [];
+    this.localScreenStream = null;
     this.streaming = false;
     this.refreshPeers();
   }
