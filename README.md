@@ -72,7 +72,14 @@ do mesmo lugar, então um evento não pode divergir entre os dois lados.
 
 ## Rodando localmente
 
-Pré-requisitos: **Node 22+**, **pnpm 10+**, **Docker**.
+Pré-requisitos: **Node 22+**, **Docker** e o **pnpm na versão que o projeto fixa**:
+
+```bash
+npm install -g pnpm@10.33.0
+```
+
+Instalar outra versão faz o pnpm tentar trocar sozinho para a fixada, o que falha no
+Windows. Fixar de uma vez evita o problema.
 
 ```bash
 pnpm install
@@ -96,6 +103,11 @@ pnpm --filter @nexus/server dev
 # 5. Aplicativo desktop
 pnpm --filter @nexus/desktop dev
 ```
+
+> **Só o cliente, no Windows:** para rodar apenas o app desktop (sem o servidor), use
+> `pnpm install --filter @nexus/desktop...`. Isso evita compilar `argon2` e `sharp`, que
+> exigiriam ferramentas de build do Visual Studio. Se o PowerShell recusar o `npm`, rode
+> antes `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 
 Na primeira execução o app pergunta o endereço do servidor — informe `http://localhost:4000`.
 

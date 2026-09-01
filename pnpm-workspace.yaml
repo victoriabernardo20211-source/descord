@@ -1,3 +1,18 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# A partir do pnpm 11 esta configuração passou a ser lida daqui em vez do
+# package.json. Mantemos nos dois lugares para o projeto funcionar com as duas
+# versões — quem clona não deveria precisar acertar a versão do pnpm primeiro.
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - prisma
+  - argon2
+  - sharp
+  - esbuild
+  - electron
+  - msgpackr-extract
+  - '@scarf/scarf'

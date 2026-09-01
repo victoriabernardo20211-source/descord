@@ -1,11 +1,28 @@
 # Cliente Windows
 
+## Preparando o Windows
+
+Três coisas costumam travar antes mesmo do projeto:
+
+```powershell
+# 1. O PowerShell bloqueia scripts por padrão, e sem isto o npm não roda.
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+# 2. Use a versão de pnpm que o projeto fixa. Outra versão tenta trocar sozinha
+#    para a fixada e falha no Windows ("Failed to switch pnpm to v...").
+npm install -g pnpm@10.33.0
+
+# 3. Instale só o cliente: evita compilar argon2 e sharp, que precisariam das
+#    ferramentas de build do Visual Studio.
+pnpm install --filter @nexus/desktop...
+pnpm --filter @nexus/shared build
+```
+
+Para rodar em desenvolvimento: `pnpm --filter @nexus/desktop dev`.
+
 ## Gerando o instalador
 
-Na sua máquina de desenvolvimento (Windows, ou Linux com Wine para o `.exe`):
-
 ```bash
-pnpm install
 pnpm release:windows
 ```
 

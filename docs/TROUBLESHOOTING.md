@@ -115,6 +115,26 @@ curl -s https://SEU-DOMINIO/api/health | jq
   extensão. Executáveis são bloqueados de propósito.
 - Erro 500 no upload → provavelmente disco cheio na VPS: `df -h`.
 
+## "Failed to switch pnpm to v10.33.0"
+
+O pnpm instalado é diferente do que o projeto fixa, e a troca automática falha no
+Windows. Instale a versão exata:
+
+```powershell
+npm install -g pnpm@10.33.0
+```
+
+## "npm.ps1 não pode ser carregado porque a execução de scripts foi desabilitada"
+
+O PowerShell bloqueia scripts por padrão. Libere para o seu usuário (não precisa de
+administrador, não altera o sistema todo):
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+Alternativa sem mexer na política: use `npm.cmd` e `pnpm.cmd` no lugar de `npm` e `pnpm`.
+
 ## Windows Firewall / SmartScreen
 
 - SmartScreen avisando na instalação é esperado (o app não é assinado): **Mais informações →
