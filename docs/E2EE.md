@@ -78,6 +78,27 @@ sequenceDiagram
 Cada prekey é entregue **no máximo uma vez** e apagada na entrega, para que duas
 sessões nunca partam do mesmo material.
 
+## Anexos
+
+Arquivo enviado em conversa privada é cifrado **no dispositivo**, antes de subir, com
+**AES-256-GCM** (WebCrypto do runtime — nenhuma primitiva escrita aqui):
+
+- Chave de 256 bits e IV de 96 bits **novos a cada arquivo**.
+- A **miniatura** é gerada antes de cifrar (o servidor não teria como gerá-la depois, já
+  que para ele o anexo é ruído) e cifrada com a mesma chave, com IV próprio.
+- A chave, o IV, o **nome e o tipo reais** do arquivo viajam **dentro do envelope Megolm**
+  da mensagem. No banco, o anexo é `application/octet-stream` com nome `encrypted`.
+- GCM é modo autenticado: um blob adulterado no servidor **falha ao decifrar** em vez de
+  virar bytes corrompidos na tela.
+
+Como a chave vive dentro da mensagem, o anexo herda todas as garantias dela — inclusive
+sumir junto quando as 8 horas acabam.
+
+O upload de anexo cifrado tem endpoint próprio (`POST /files/upload/encrypted`), porque o
+servidor não pode inspecionar o conteúdo para descobrir o tipo. Ele continua aplicando o
+**limite de tamanho**, que é o que impede abuso. Anexos de canal de servidor seguem pelo
+caminho normal, com detecção de tipo por conteúdo e allowlist.
+
 ## Rotação de chaves
 
 A sessão Megolm é trocada a cada **8 horas** ou **200 mensagens** — o que vier primeiro —

@@ -12,6 +12,8 @@ export interface PreparedUpload {
   size: number;
   width: number | null;
   height: number | null;
+  /** true quando o conteúdo já chegou cifrado pelo dispositivo. */
+  encrypted?: boolean;
 }
 
 /**
@@ -121,6 +123,38 @@ export class FilesService {
       size: file.size,
       width,
       height,
+    };
+  }
+
+  /**
+   * Grava um blob JÁ CIFRADO pelo dispositivo (anexo de conversa privada).
+   *
+   * Aqui não há como inspecionar o conteúdo — são bytes aleatórios — então não
+   * detectamos tipo, não geramos miniatura e não aplicamos a allowlist. O tipo
+   * e o nome reais viajam dentro do envelope Megolm, ilegíveis para o servidor.
+   * O limite de tamanho continua valendo, e é ele que impede abuso.
+   */
+  async storeEncrypted(file: Express.Multer.File, scope: string): Promise<PreparedUpload> {
+    if (file.size > this.config.MAX_UPLOAD_SIZE) {
+      throw new BadRequestException({
+        code: 'FILE_TOO_LARGE',
+        message: `Arquivo maior que o limite de ${Math.round(this.config.MAX_UPLOAD_SIZE / 1024 / 1024)} MB.`,
+      });
+    }
+
+    const storageKey = `${scope}/${createId()}`;
+    await this.storage.put(storageKey, file.buffer, 'application/octet-stream');
+
+    return {
+      storageKey,
+      thumbnailKey: null,
+      // Placeholders: o servidor não conhece o nome nem o tipo reais.
+      fileName: 'encrypted',
+      mimeType: 'application/octet-stream',
+      size: file.size,
+      width: null,
+      height: null,
+      encrypted: true,
     };
   }
 

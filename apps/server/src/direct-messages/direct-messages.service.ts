@@ -20,6 +20,8 @@ import { ExpirationService } from './expiration.service';
 
 interface AttachmentRow {
   id: string;
+  uploadId: string | null;
+  encrypted: boolean;
   fileName: string;
   mimeType: string;
   size: number;
@@ -229,7 +231,11 @@ export class DirectMessagesService {
         // Calculadas no cliente: o servidor não consegue ler o texto para extraí-las.
         mentionedUserIds: input.mentionedUserIds ?? [],
         attachments: {
-          create: attachments.map((a) => ({
+          create: attachments.map((a, index) => ({
+            // O id do upload é a ponte até a chave que abre este anexo, guardada
+            // dentro do texto cifrado. Sem ele o dispositivo não sabe qual chave usar.
+            uploadId: (input.attachmentIds ?? [])[index] ?? null,
+            encrypted: a.encrypted ?? false,
             storageKey: a.storageKey,
             thumbnailKey: a.thumbnailKey,
             fileName: a.fileName,
@@ -382,6 +388,8 @@ export class DirectMessagesService {
       // O download exige autorização — nunca é um caminho público no disco.
       attachments: ((message.attachments ?? []) as AttachmentRow[]).map((a) => ({
         id: a.id,
+        uploadId: a.uploadId,
+        encrypted: a.encrypted,
         fileName: a.fileName,
         mimeType: a.mimeType,
         size: a.size,

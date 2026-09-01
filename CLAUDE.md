@@ -68,14 +68,13 @@ TEST_DATABASE_URL=postgresql://nexus:nexus@localhost:5432/nexus_test pnpm --filt
 
 - **Fase 1 pronta:** auth (Argon2id, sessões revogáveis), amigos, servidores, categorias,
   canais, chat em tempo real, DMs com expiração de 8h, uploads, permissões, notificações.
-- **Fase 1.5 pronta:** E2EE das DMs e grupos privados.
+- **Fase 1.5 pronta:** E2EE das DMs e grupos privados, **incluindo os anexos**
+  (AES-256-GCM no cliente, chave dentro do envelope Megolm).
 - **Em andamento:** primeiro deploy numa VPS em São Paulo (Ubuntu 26.04, Docker).
 - **Próximas fases** em `docs/ROADMAP.md`: voz/LiveKit, tela, polish, instalador.
 
 ### Pendências conhecidas
 
-- Anexos de DM **ainda não são cifrados** no cliente (a mensagem é, o arquivo não).
-  Próximo passo: AES-256-GCM antes do upload, chave dentro do envelope Megolm.
 - Verificação de contato (número de segurança) existe no backend, falta a tela.
 - Voz, vídeo e compartilhamento de tela não existem ainda. Os canais de voz aparecem
   desabilitados na UI, com tooltip — **não finja que funcionam**.

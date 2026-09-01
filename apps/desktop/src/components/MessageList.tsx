@@ -1,13 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import type { DirectMessage, Message } from '@nexus/shared';
 import { Avatar } from './Avatar';
 import { ExpiryBadge } from './ExpiryBadge';
 import { renderMarkdown } from '../lib/markdown';
 import { formatDay, formatTime } from '../lib/time';
-import { useApp, type PendingMessage } from '../store/app';
+import { decryptAttachment } from '../lib/crypto-files';
+import { useApp, type DecryptedAttachment, type PendingMessage } from '../store/app';
 
-type AnyMessage = (Message | DirectMessage) & {
+type AnyMessage = Omit<Message | DirectMessage, 'attachments'> & {
+  attachments: DecryptedAttachment[];
   expiresAt?: string;
   channelId?: string;
   /** DM cifrada que este dispositivo não tem chave para abrir. */
@@ -181,25 +183,58 @@ export function MessageList({ messages, pending, onLoadOlder }: Props): JSX.Elem
   );
 }
 
-function AttachmentPreview({
-  attachment,
-}: {
-  attachment: { id: string; url: string; thumbnailUrl: string | null; fileName: string; mimeType: string };
-}): JSX.Element {
+/**
+ * Resolve um anexo para uma URL exibível.
+ *
+ * Anexo de conversa privada chega cifrado: baixamos os bytes e deciframos aqui,
+ * com a chave que veio dentro do envelope da mensagem. Anexo de canal é servido
+ * como está — só o download já exige autorização.
+ */
+async function resolveObjectUrl(
+  api: NonNullable<ReturnType<typeof useApp.getState>['api']>,
+  url: string,
+  mimeType: string,
+  key?: string,
+  iv?: string,
+): Promise<string | null> {
+  if (!key || !iv) return api.fetchAttachment(url);
+  const bytes = await api.fetchAttachmentBytes(url);
+  const blob = await decryptAttachment(bytes, key, iv, mimeType);
+  return blob ? URL.createObjectURL(blob) : null;
+}
+
+function AttachmentPreview({ attachment }: { attachment: DecryptedAttachment }): JSX.Element {
   const api = useApp((s) => s.api);
+  const [failed, setFailed] = useState(false);
   const isImage = attachment.mimeType.startsWith('image/');
+
+  if (failed) {
+    return (
+      <span className="rounded-lg border border-ink-700 bg-ink-850 px-3 py-2 text-xs text-mist-400">
+        Não foi possível abrir {attachment.fileName}
+      </span>
+    );
+  }
 
   return (
     <button
       onClick={async () => {
-        // Anexos exigem autorização, então buscamos com o token e abrimos o blob.
-        const url = await api?.fetchAttachment(attachment.url);
+        if (!api) return;
+        const url = await resolveObjectUrl(
+          api,
+          attachment.url,
+          attachment.mimeType,
+          attachment.key,
+          attachment.iv,
+        ).catch(() => null);
         if (url) window.open(url, '_blank', 'noopener');
+        else setFailed(true);
       }}
+      title={attachment.fileName}
       className="max-w-xs overflow-hidden rounded-lg border border-ink-700 bg-ink-850 text-left transition-colors hover:border-ink-500"
     >
       {isImage ? (
-        <LazyImage url={attachment.thumbnailUrl ?? attachment.url} alt={attachment.fileName} />
+        <LazyImage attachment={attachment} onFail={() => setFailed(true)} />
       ) : (
         <span className="block px-3 py-2 text-xs text-mist-200">📎 {attachment.fileName}</span>
       )}
@@ -207,26 +242,60 @@ function AttachmentPreview({
   );
 }
 
-function LazyImage({ url, alt }: { url: string; alt: string }): JSX.Element {
+function LazyImage({
+  attachment,
+  onFail,
+}: {
+  attachment: DecryptedAttachment;
+  onFail: () => void;
+}): JSX.Element {
   const api = useApp((s) => s.api);
-  const ref = useRef<HTMLImageElement>(null);
+  const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
     let objectUrl: string | null = null;
     let cancelled = false;
-    void api?.fetchAttachment(url).then((blobUrl) => {
+
+    void (async () => {
+      if (!api) return;
+      // Prefere a miniatura: ela também é cifrada, com a mesma chave e IV próprio.
+      const useThumb = Boolean(attachment.thumbnailUrl);
+      const url = useThumb ? (attachment.thumbnailUrl as string) : attachment.url;
+      const iv = useThumb ? (attachment.thumbnailIv ?? attachment.iv) : attachment.iv;
+      const mime = useThumb ? 'image/webp' : attachment.mimeType;
+
+      const resolved = await resolveObjectUrl(api, url, mime, attachment.key, iv).catch(
+        () => null,
+      );
       if (cancelled) {
-        URL.revokeObjectURL(blobUrl);
+        if (resolved) URL.revokeObjectURL(resolved);
         return;
       }
-      objectUrl = blobUrl;
-      if (ref.current) ref.current.src = blobUrl;
-    });
+      if (!resolved) {
+        onFail();
+        return;
+      }
+      objectUrl = resolved;
+      setSrc(resolved);
+    })();
+
     return () => {
       cancelled = true;
+      // Sem isto, cada rolagem do histórico vaza um blob na memória.
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [url, api]);
+  }, [attachment, api, onFail]);
 
-  return <img ref={ref} alt={alt} className="max-h-64 w-full object-cover" />;
+  if (!src) {
+    return (
+      <span
+        className="block animate-pulse bg-ink-800"
+        style={{ width: 220, height: attachment.height && attachment.width
+          ? Math.round((attachment.height / attachment.width) * 220)
+          : 140 }}
+      />
+    );
+  }
+
+  return <img src={src} alt={attachment.fileName} className="max-h-64 w-full object-cover" />;
 }

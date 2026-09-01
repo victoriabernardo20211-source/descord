@@ -86,6 +86,7 @@ ao servidor pode ver essa linha. Isso é uma consequência de o servidor ser seu
 | Senhas | Argon2id. |
 | Refresh tokens | Apenas o hash é armazenado. |
 | **Mensagens privadas (DMs e grupos privados)** | **Ponta a ponta, com Olm/Megolm.** O servidor guarda texto cifrado que não consegue abrir. |
+| **Anexos de conversa privada** | **AES-256-GCM no dispositivo** antes do upload. A chave viaja dentro do envelope da mensagem. |
 | Mensagens de canal de servidor | Texto legível no PostgreSQL — decisão consciente, ver abaixo. |
 
 O detalhamento completo do E2EE (protocolo, ciclo de vida das chaves, o que o

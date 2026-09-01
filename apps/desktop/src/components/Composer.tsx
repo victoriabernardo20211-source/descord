@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import type { EncryptedFile } from '@nexus/shared';
+import { encryptAttachment } from '../lib/crypto-files';
 import type { JSX } from 'react';
 import { useApp } from '../store/app';
 
@@ -16,6 +18,7 @@ export function Composer({ placeholder, disabled }: Props): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const api = useApp((s) => s.api);
+  const isDm = useApp((s) => s.view.kind === 'dm');
   const sendMessage = useApp((s) => s.sendMessage);
   const notifyTyping = useApp((s) => s.notifyTyping);
   const lastTyping = useRef(0);
@@ -25,10 +28,46 @@ export function Composer({ placeholder, disabled }: Props): JSX.Element {
     if (!value.trim() && files.length === 0) return;
 
     let attachmentIds: string[] = [];
+    let dmFiles: EncryptedFile[] | undefined;
+
     if (files.length > 0 && api) {
       setUploading(true);
       try {
-        attachmentIds = (await Promise.all(files.map((file) => api.upload(file)))).map((r) => r.id);
+        if (isDm) {
+          // Em conversa privada o arquivo é cifrado AQUI. O servidor recebe
+          // bytes opacos, e a chave vai dentro do envelope da mensagem.
+          dmFiles = [];
+          for (const file of files) {
+            const encrypted = await encryptAttachment(file);
+            const uploaded = await api.uploadEncrypted(encrypted.file.data);
+            attachmentIds.push(uploaded.id);
+
+            let thumbnailUploadId: string | undefined;
+            if (encrypted.thumbnail) {
+              const thumb = await api.uploadEncrypted(encrypted.thumbnail.data);
+              attachmentIds.push(thumb.id);
+              thumbnailUploadId = thumb.id;
+            }
+
+            dmFiles.push({
+              uploadId: uploaded.id,
+              key: encrypted.key,
+              iv: encrypted.file.iv,
+              ...(thumbnailUploadId
+                ? { thumbnailUploadId, thumbnailIv: encrypted.thumbnail?.iv }
+                : {}),
+              fileName: encrypted.fileName,
+              mimeType: encrypted.mimeType,
+              size: encrypted.size,
+              width: encrypted.width,
+              height: encrypted.height,
+            });
+          }
+        } else {
+          attachmentIds = (await Promise.all(files.map((file) => api.upload(file)))).map(
+            (r) => r.id,
+          );
+        }
       } catch {
         useApp.getState().setError('Falha ao enviar o anexo.');
         setUploading(false);
@@ -40,7 +79,7 @@ export function Composer({ placeholder, disabled }: Props): JSX.Element {
     const content = value;
     setValue('');
     setFiles([]);
-    await sendMessage(content, attachmentIds);
+    await sendMessage(content, attachmentIds, dmFiles);
   }
 
   return (

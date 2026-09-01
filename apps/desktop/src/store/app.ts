@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { DirectMessage, Message, PresenceState, PublicUser } from '@nexus/shared';
 import { ApiClient } from '../lib/api';
 import { E2eeManager } from '../lib/e2ee';
+import { dmPayloadSchema, type DmPayload, type EncryptedFile } from '@nexus/shared';
 import { realtime, type ConnectionStatus } from '../lib/socket';
 import { bridge } from '../lib/bridge';
 
@@ -51,7 +52,26 @@ export interface Me {
  * chave desta sessão não existe neste dispositivo, `decryptionFailed` fica
  * verdadeiro e a UI explica o motivo em vez de mostrar lixo cifrado.
  */
-export type DecryptedDirectMessage = DirectMessage & { decryptionFailed?: boolean };
+/** Anexo de DM pronto para exibir, já com a chave que o abre. */
+export interface DecryptedAttachment {
+  id: string;
+  url: string;
+  thumbnailUrl: string | null;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  width: number | null;
+  height: number | null;
+  /** Material de chave vindo de dentro do envelope; ausente = anexo antigo em claro. */
+  key?: string;
+  iv?: string;
+  thumbnailIv?: string;
+}
+
+export type DecryptedDirectMessage = Omit<DirectMessage, 'attachments'> & {
+  attachments: DecryptedAttachment[];
+  decryptionFailed?: boolean;
+};
 
 /** Mensagem otimista: aparece na hora e vira `sent` quando o servidor confirma. */
 export interface PendingMessage {
@@ -110,7 +130,7 @@ interface AppState {
   openFriends: () => void;
   startDm: (userId: string) => Promise<void>;
 
-  sendMessage: (content: string, attachmentIds?: string[]) => Promise<void>;
+  sendMessage: (content: string, attachmentIds?: string[], dmFiles?: EncryptedFile[]) => Promise<void>;
   loadOlder: () => Promise<void>;
   react: (messageId: string, emoji: string, add: boolean) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
@@ -289,7 +309,7 @@ export const useApp = create<AppState>((set, get) => ({
     await get().openConversation(conversation.id);
   },
 
-  sendMessage: async (content, attachmentIds) => {
+  sendMessage: async (content, attachmentIds, dmFiles) => {
     const { api, view, activeChannelId } = get();
     if (!api || !activeChannelId) return;
 
@@ -319,7 +339,10 @@ export const useApp = create<AppState>((set, get) => ({
           activeChannelId,
           conversation?.participants.map((p) => p.id) ?? [],
         );
-        const encryption = await e2ee.encrypt(activeChannelId, content);
+
+        // O texto e as chaves dos anexos são cifrados juntos, num payload só.
+        const payload: DmPayload = { v: 1, text: content, files: dmFiles ?? [] };
+        const encryption = await e2ee.encrypt(activeChannelId, JSON.stringify(payload));
         await api.post(`/dm/conversations/${activeChannelId}/messages`, {
           encryption,
           clientMessageId,
@@ -512,17 +535,75 @@ async function decryptOne(
   message: DirectMessage,
   e2ee: E2eeManager | null,
 ): Promise<DecryptedDirectMessage> {
+  const asPlain = (extra: Partial<DecryptedDirectMessage> = {}): DecryptedDirectMessage => ({
+    ...message,
+    attachments: message.attachments.map((a) => ({
+      id: a.id,
+      url: a.url,
+      thumbnailUrl: a.thumbnailUrl,
+      fileName: a.fileName,
+      mimeType: a.mimeType,
+      size: a.size,
+      width: a.width,
+      height: a.height,
+    })),
+    ...extra,
+  });
+
   // Mensagem sem envelope é conteúdo legado, anterior ao E2EE.
-  if (!message.encryption) return message;
-  if (!e2ee) return { ...message, content: '', decryptionFailed: true };
+  if (!message.encryption) return asPlain();
+  if (!e2ee) return asPlain({ content: '', decryptionFailed: true });
 
   const plaintext = await e2ee.decrypt(message.encryption).catch(() => null);
   if (plaintext === null) {
     // Falhar aqui é o comportamento esperado quando este dispositivo não
     // possui a chave daquela sessão — não é um erro a ser escondido.
-    return { ...message, content: '', decryptionFailed: true };
+    return asPlain({ content: '', decryptionFailed: true });
   }
-  return { ...message, content: plaintext };
+
+  // Mensagens antigas cifravam só o texto; as novas cifram um payload com o
+  // texto e as chaves dos anexos. Aceitamos as duas formas.
+  const parsed = dmPayloadSchema.safeParse(safeJson(plaintext));
+  if (!parsed.success) return asPlain({ content: plaintext });
+
+  const byUploadId = new Map(
+    message.attachments.filter((a) => a.uploadId).map((a) => [a.uploadId as string, a]),
+  );
+
+  const attachments: DecryptedAttachment[] = [];
+  for (const file of parsed.data.files) {
+    const row = byUploadId.get(file.uploadId);
+    // Sem a linha correspondente o anexo já foi apagado (expiração, por exemplo).
+    if (!row) continue;
+    const thumbRow = file.thumbnailUploadId
+      ? byUploadId.get(file.thumbnailUploadId)
+      : undefined;
+
+    attachments.push({
+      id: row.id,
+      url: row.url,
+      thumbnailUrl: thumbRow?.url ?? null,
+      // Nome e tipo REAIS vêm de dentro do envelope — o servidor só tem placeholders.
+      fileName: file.fileName,
+      mimeType: file.mimeType,
+      size: file.size,
+      width: file.width ?? null,
+      height: file.height ?? null,
+      key: file.key,
+      iv: file.iv,
+      ...(file.thumbnailIv ? { thumbnailIv: file.thumbnailIv } : {}),
+    });
+  }
+
+  return { ...asPlain(), content: parsed.data.text, attachments };
+}
+
+function safeJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 let handlersRegistered = false;

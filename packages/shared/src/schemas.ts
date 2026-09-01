@@ -47,6 +47,9 @@ export type PresenceState = z.infer<typeof presenceSchema>;
 
 export const attachmentSchema = z.object({
   id: z.string(),
+  /** Presentes em anexo de conversa privada: ligam a linha à chave no envelope. */
+  uploadId: z.string().nullish(),
+  encrypted: z.boolean().nullish(),
   fileName: z.string(),
   mimeType: z.string(),
   size: z.number(),
@@ -79,6 +82,39 @@ export const messageSchema = z.object({
   clientMessageId: z.string().nullable().optional(),
 });
 export type Message = z.infer<typeof messageSchema>;
+
+/**
+ * Um anexo de conversa privada. O arquivo é cifrado no dispositivo com
+ * AES-256-GCM antes do upload; a chave viaja DENTRO do envelope Megolm, então
+ * o servidor guarda bytes opacos e não tem como abri-los.
+ */
+export const encryptedFileSchema = z.object({
+  /** Correlaciona esta entrada com a linha de anexo devolvida pelo servidor. */
+  uploadId: z.string(),
+  /** Chave AES-256-GCM em base64. Só existe aqui, dentro do texto cifrado. */
+  key: z.string(),
+  iv: z.string(),
+  /** Miniatura cifrada com a MESMA chave, quando o anexo é imagem. */
+  thumbnailUploadId: z.string().nullish(),
+  thumbnailIv: z.string().nullish(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  size: z.number(),
+  width: z.number().nullish(),
+  height: z.number().nullish(),
+});
+export type EncryptedFile = z.infer<typeof encryptedFileSchema>;
+
+/**
+ * O que é realmente cifrado numa mensagem privada. O texto e os metadados dos
+ * anexos ficam juntos aqui dentro — nada disso chega legível ao servidor.
+ */
+export const dmPayloadSchema = z.object({
+  v: z.literal(1),
+  text: z.string(),
+  files: z.array(encryptedFileSchema).max(10).default([]),
+});
+export type DmPayload = z.infer<typeof dmPayloadSchema>;
 
 /**
  * Envelope cifrado ponta a ponta. O servidor armazena e devolve estes campos

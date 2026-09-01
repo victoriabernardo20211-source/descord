@@ -135,6 +135,22 @@ export class ApiClient {
     return this.request('/files/upload', { method: 'POST', body: form });
   }
 
+  /** Sobe um blob já cifrado pelo dispositivo (anexo de conversa privada). */
+  async uploadEncrypted(data: ArrayBuffer): Promise<{ id: string }> {
+    const form = new FormData();
+    form.append('file', new Blob([data], { type: 'application/octet-stream' }), 'blob');
+    return this.request('/files/upload/encrypted', { method: 'POST', body: form });
+  }
+
+  /** Bytes crus de um anexo, para o cliente decifrar antes de exibir. */
+  async fetchAttachmentBytes(url: string): Promise<ArrayBuffer> {
+    const res = await fetch(`${this.baseUrl}/api${url}`, {
+      headers: this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {},
+    });
+    if (!res.ok) throw new ApiError('Anexo indisponível.', 'NOT_FOUND', res.status);
+    return res.arrayBuffer();
+  }
+
   /** URL absoluta de um anexo (o download exige o token no header, via fetch). */
   async fetchAttachment(url: string): Promise<string> {
     const res = await fetch(`${this.baseUrl}/api${url}`, {

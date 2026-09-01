@@ -92,9 +92,6 @@ desligar a animação.
 
 Ficaram fora desta entrega e valem uma fase futura:
 
-- **Anexos de DM ainda não são cifrados no cliente.** A mensagem é, o arquivo não.
-  Próximo passo: cifrar com AES-256-GCM antes do upload e mandar a chave dentro do
-  envelope Megolm. O servidor passaria a guardar blob opaco.
 - **Verificação de contato pela UI.** O número de segurança já é calculado; falta a
   tela para comparar e marcar um dispositivo como verificado.
 - **Aviso visual de dispositivo novo** na conversa (o evento já existe no backend).

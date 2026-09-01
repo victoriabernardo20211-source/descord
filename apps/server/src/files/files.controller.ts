@@ -49,6 +49,23 @@ export class FilesController {
     };
   }
 
+  /**
+   * Upload de anexo de conversa privada. O arquivo chega cifrado pelo
+   * dispositivo; o servidor guarda bytes opacos e nunca sabe o que são.
+   */
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post('upload/encrypted')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadEncrypted(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException({ code: 'NO_FILE', message: 'Nenhum arquivo enviado.' });
+    const prepared = await this.files.storeEncrypted(file, `uploads/${user.id}`);
+    const id = await this.pending.create(user.id, prepared);
+    return { id, size: prepared.size, encrypted: true };
+  }
+
   /** Anexo de canal: exige VIEW_CHANNEL + READ_MESSAGE_HISTORY no canal. */
   @Get('channel/:attachmentId')
   async channelAttachment(

@@ -445,6 +445,12 @@ model DirectMessageAttachment {
   id           String        @id @default(cuid())
   messageId    String
   message      DirectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  /// Id que o cliente atribuiu ao upload. É por ele que o dispositivo encontra,
+  /// dentro do texto cifrado, a chave que abre este anexo.
+  uploadId     String?
+  /// true quando o blob está cifrado no cliente (AES-256-GCM) e o servidor
+  /// não sabe nem o tipo real do arquivo.
+  encrypted    Boolean       @default(false)
   storageKey   String
   thumbnailKey String?
   fileName     String
