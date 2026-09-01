@@ -157,6 +157,29 @@ export class VoiceConnection {
     this.emit();
   }
 
+  /** Lista microfones e saídas de áudio disponíveis. */
+  async devices(): Promise<{ inputs: MediaDeviceInfo[]; outputs: MediaDeviceInfo[] }> {
+    // Sem permissão concedida, os rótulos vêm vazios — pedimos antes de listar.
+    await navigator.mediaDevices.getUserMedia({ audio: true }).then(
+      (stream) => stream.getTracks().forEach((t) => t.stop()),
+      () => undefined,
+    );
+    const all = await navigator.mediaDevices.enumerateDevices();
+    return {
+      inputs: all.filter((d) => d.kind === 'audioinput'),
+      outputs: all.filter((d) => d.kind === 'audiooutput'),
+    };
+  }
+
+  /** Troca o microfone sem sair da chamada. */
+  async setInputDevice(deviceId: string): Promise<void> {
+    await this.room?.switchActiveDevice('audioinput', deviceId).catch(() => undefined);
+  }
+
+  async setOutputDevice(deviceId: string): Promise<void> {
+    await this.room?.switchActiveDevice('audiooutput', deviceId).catch(() => undefined);
+  }
+
   /** Volume individual, 0–200%. Fica só neste computador. */
   setVolume(userId: string, volume: number): void {
     const clamped = Math.max(0, Math.min(200, Math.round(volume)));

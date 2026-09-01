@@ -7,6 +7,7 @@ import { MessageList } from '../components/MessageList';
 import { TypingIndicator } from '../components/TypingIndicator';
 import { AddServerDialog } from '../components/AddServerDialog';
 import { CallView } from '../components/CallView';
+import { VoiceSettings } from '../components/VoiceSettings';
 import { ScreenSharePicker } from '../components/ScreenSharePicker';
 import { useApp } from '../store/app';
 import { Logo } from './Connect';
@@ -377,6 +378,7 @@ function UserPanel(): JSX.Element {
   const inVoice = useApp((s) => s.voiceChannelId !== null);
   const toggleMute = useApp((s) => s.toggleMute);
   const toggleDeafen = useApp((s) => s.toggleDeafen);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   if (!me) return <div />;
 
   return (
@@ -411,6 +413,14 @@ function UserPanel(): JSX.Element {
         </>
       )}
       <button
+        onClick={() => setSettingsOpen(true)}
+        title="Voz e vídeo"
+        aria-label="Configurações de voz e vídeo"
+        className="rounded p-1.5 text-mist-400 transition-colors hover:bg-ink-700 hover:text-mist-50"
+      >
+        ⚙
+      </button>
+      <button
         onClick={() => void logout()}
         title="Sair"
         aria-label="Sair"
@@ -418,6 +428,8 @@ function UserPanel(): JSX.Element {
       >
         ⏻
       </button>
+
+      {settingsOpen && <VoiceSettings onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

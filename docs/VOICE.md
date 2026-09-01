@@ -82,6 +82,10 @@ curl -s http://127.0.0.1:4000/api/voice/status   # esperado: {"configured":true}
 
 ## Recursos
 
+- **Configurações de voz** (engrenagem no painel do usuário): escolha de microfone e saída,
+  **medidor de nível ao vivo**, modo de entrada e processamento de áudio. O medidor é o que
+  evita o problema clássico de descobrir que o microfone errado estava selecionado só
+  quando ninguém te ouve.
 - **Microfone** com supressão de ruído, cancelamento de eco e ganho automático — recursos
   nativos do WebRTC, configuráveis por usuário.
 - **Push-to-talk** com atalho **global**: funciona com o Nexus minimizado.

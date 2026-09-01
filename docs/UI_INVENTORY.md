@@ -70,7 +70,7 @@ Estes existem no código e são os mais esquecidos no desenho:
 - Voz conectada no painel do usuário: ping, desconectar, compartilhar tela
 - Chamada privada: chamando · tocando · conectada · perdida · recusada
 - Menu de contexto do usuário: volume individual 0–200%, silenciar, perfil
-- Configurações → Voz e Vídeo: dispositivos, teste de microfone, push-to-talk
+- ~~Configurações → Voz e Vídeo: dispositivos, medidor de nível, push-to-talk~~ **feito**
 
 ## Fase 3 — compartilhamento de tela (a implementar)
 
