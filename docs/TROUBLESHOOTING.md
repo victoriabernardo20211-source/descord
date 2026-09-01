@@ -175,6 +175,19 @@ Corrigido. A captura usa `getUserMedia` com as constraints legadas do Chromium, 
 e os dois formatos de constraint não podem ser misturados. Se voltar a aparecer, é sinal
 de que alguém reintroduziu `getDisplayMedia` em `apps/desktop/src/lib/voice.ts`.
 
+### "v1 RTC path not found" ou "Cannot read properties of undefined (reading 'publisher')"
+
+O servidor LiveKit está mais antigo que o SDK do app. A sinalização até conecta pelo
+caminho legado, mas o transporte de publicação não se estabelece — e aí qualquer tentativa
+de publicar microfone ou tela quebra.
+
+```bash
+cd /opt/nexus
+docker compose --env-file .env -f infrastructure/docker/docker-compose.yml pull livekit
+./scripts/deploy.sh
+docker compose --env-file .env -f infrastructure/docker/docker-compose.yml logs livekit | head -20
+```
+
 ### Stream aparece preto
 
 Costuma ser aceleração de hardware brigando com a captura de janela. Tente compartilhar o

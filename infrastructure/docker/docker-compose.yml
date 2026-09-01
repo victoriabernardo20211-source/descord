@@ -69,7 +69,12 @@ services:
   # SFU de voz e tela. A mídia NUNCA passa pelo backend: o cliente conecta aqui
   # direto, com um token que o backend assinou depois de checar as permissões.
   livekit:
-    image: livekit/livekit-server:v1.8
+    # Precisa acompanhar o livekit-client do app: um servidor antigo faz o
+    # cliente receber 404 em /rtc/v1, cair para o caminho legado e conectar só a
+    # sinalização — aí publicar qualquer track quebra com "reading 'publisher'".
+    # Depois de confirmar que funciona, vale fixar a versão exata:
+    #   docker inspect livekit/livekit-server:latest --format '{{index .RepoDigests 0}}'
+    image: ${LIVEKIT_IMAGE:-livekit/livekit-server:latest}
     restart: unless-stopped
     # Host network: o WebRTC precisa que os candidatos ICE apontem para um
     # endereço que os clientes alcancem. Com bridge, o LiveKit anunciaria o IP
