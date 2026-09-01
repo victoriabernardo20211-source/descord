@@ -435,10 +435,24 @@ export const useApp = create<AppState>((set, get) => ({
           );
         }
         const conversation = get().conversations.find((c) => c.id === activeChannelId);
-        await e2ee.ensureSession(
+        const session = await e2ee.ensureSession(
           activeChannelId,
           conversation?.participants.map((p) => p.id) ?? [],
         );
+        if (session.unreachable.length > 0) {
+          const names = [
+            ...new Set(
+              session.unreachable.map(
+                (device) =>
+                  conversation?.participants.find((p) => p.id === device.userId)?.displayName ??
+                  'alguém',
+              ),
+            ),
+          ].join(', ');
+          set({
+            error: `${names} não vai conseguir ler esta mensagem: o aparelho ficou sem chaves disponíveis. Peça para reabrir o Nexus.`,
+          });
+        }
 
         // O texto e as chaves dos anexos são cifrados juntos, num payload só.
         const payload: DmPayload = { v: 1, text: content, files: dmFiles ?? [] };
@@ -811,10 +825,10 @@ async function decryptOne(
   if (!message.encryption) return asPlain();
   if (!e2ee) return asPlain({ content: '', decryptionFailed: true });
 
-  const plaintext = await e2ee.decrypt(message.encryption).catch(() => null);
+  const plaintext = await e2ee.decryptWithRefresh(message.encryption).catch(() => null);
   if (plaintext === null) {
-    // Falhar aqui é o comportamento esperado quando este dispositivo não
-    // possui a chave daquela sessão — não é um erro a ser escondido.
+    // Chegando aqui a chave já foi procurada uma vez: este dispositivo
+    // realmente não participava da sessão. Não é erro a ser escondido.
     return asPlain({ content: '', decryptionFailed: true });
   }
 

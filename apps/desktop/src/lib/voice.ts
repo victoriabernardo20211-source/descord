@@ -4,6 +4,7 @@ import {
   LocalParticipant,
   Participant,
   RemoteParticipant,
+  RemoteAudioTrack,
   RemoteTrack,
   RemoteTrackPublication,
   Room,
@@ -44,6 +45,8 @@ export class VoiceConnection {
   private listeners = new Set<Listener>();
   private volumes = new Map<string, number>();
   private screenPublications: LocalTrackPublication[] = [];
+  /** Elementos <audio> de cada participante — sem eles não sai som nenhum. */
+  private audioElements = new Map<string, HTMLMediaElement[]>();
 
   channelId: string | null = null;
   connecting = false;
@@ -147,6 +150,7 @@ export class VoiceConnection {
     this.streaming = false;
     this.screenPublications = [];
     this.micWarning = null;
+    for (const identity of [...this.audioElements.keys()]) this.dropAudio(identity);
     this.emit();
   }
 
@@ -336,7 +340,20 @@ export class VoiceConnection {
       .on(RoomEvent.ParticipantConnected, () => this.refreshPeers())
       .on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
         this.remoteStreams.delete(participant.identity);
+        this.dropAudio(participant.identity);
         this.refreshPeers();
+      })
+      .on(RoomEvent.AudioPlaybackStatusChanged, () => {
+        // O navegador pode bloquear a reprodução até haver um gesto. Entrar na
+        // chamada É o gesto, então basta pedir de novo — e registrar se falhar,
+        // em vez de ficar mudo sem explicação.
+        if (!room.canPlaybackAudio) {
+          void room.startAudio().catch(() => {
+            this.micWarning =
+              'O sistema bloqueou a reprodução de áudio. Clique em qualquer lugar da janela para liberar.';
+            this.emit();
+          });
+        }
       })
       .on(RoomEvent.ActiveSpeakersChanged, () => this.refreshPeers())
       .on(RoomEvent.TrackMuted, () => this.refreshPeers())
@@ -355,8 +372,12 @@ export class VoiceConnection {
             const stream = new MediaStream([track.mediaStreamTrack]);
             this.remoteStreams.set(participant.identity, stream);
           }
-          if (track.kind === Track.Kind.Audio && this.selfDeafened) {
-            participant.setVolume(0);
+          if (track.kind === Track.Kind.Audio) {
+            // O LiveKit não reproduz áudio sozinho: `attach()` cria o elemento
+            // <audio> e começa a tocar. Sem esta linha a chamada conecta, o
+            // vídeo aparece e ninguém ouve ninguém — os dois lados.
+            this.attachAudio(participant.identity, track as RemoteAudioTrack);
+            participant.setVolume(this.selfDeafened ? 0 : this.volumeFor(participant.identity) / 100);
           }
           this.refreshPeers();
         },
@@ -365,9 +386,30 @@ export class VoiceConnection {
         RoomEvent.TrackUnsubscribed,
         (track: RemoteTrack, _pub: RemoteTrackPublication, participant: RemoteParticipant) => {
           if (track.kind === Track.Kind.Video) this.remoteStreams.delete(participant.identity);
+          if (track.kind === Track.Kind.Audio) this.detachAudio(participant.identity, track);
           this.refreshPeers();
         },
       );
+  }
+
+  /** Cria e guarda o elemento de áudio de um participante. */
+  private attachAudio(identity: string, track: RemoteAudioTrack): void {
+    const element = track.attach();
+    element.autoplay = true;
+    // Fora do DOM o Chromium pode suspender a reprodução; escondido basta.
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    this.audioElements.set(identity, [...(this.audioElements.get(identity) ?? []), element]);
+  }
+
+  private detachAudio(identity: string, track: RemoteTrack): void {
+    for (const element of track.detach()) element.remove();
+    this.audioElements.delete(identity);
+  }
+
+  private dropAudio(identity: string): void {
+    for (const element of this.audioElements.get(identity) ?? []) element.remove();
+    this.audioElements.delete(identity);
   }
 
   private refreshPeers(): void {

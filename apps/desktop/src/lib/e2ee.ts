@@ -80,7 +80,10 @@ export class E2eeManager {
    * mensagem desta conversa. Chamado antes de cada envio; é barato depois da
    * primeira vez, porque só age sobre dispositivos ainda não atendidos.
    */
-  async ensureSession(conversationId: string, participantIds: string[]): Promise<RemoteDevice[]> {
+  async ensureSession(
+    conversationId: string,
+    participantIds: string[],
+  ): Promise<{ devices: RemoteDevice[]; unreachable: RemoteDevice[] }> {
     const keys = await this.api.post<Record<string, RemoteDevice[]>>('/e2ee/keys/query', {
       userIds: participantIds,
     });
@@ -93,7 +96,13 @@ export class E2eeManager {
         devices.push({ ...device, userId });
       }
     }
-    if (devices.length === 0) return [];
+    if (devices.length === 0) return { devices: [], unreachable: [] };
+
+    // Dispositivos que ficaram sem sessão: a mensagem sairia cifrada com uma
+    // chave que eles não têm, e ficaria ilegível para sempre. Quem envia
+    // precisa saber disso — silêncio aqui vira "ele não consegue ler e ninguém
+    // sabe por quê".
+    const unreachable: RemoteDevice[] = [];
 
     // 1. Abrir sessão Olm com quem ainda não tem uma.
     const missing = await bridge.e2ee.missingSessions(devices);
@@ -107,15 +116,19 @@ export class E2eeManager {
       const entries: { device: RemoteDevice; oneTimeKey: string }[] = [];
       for (const device of missing) {
         const key = claimed[device.userId]?.[device.deviceId];
-        // Sem prekey disponível o dispositivo fica de fora até repor o estoque.
+        // Sem prekey o dispositivo fica de fora até o dono repor o estoque.
         if (key) entries.push({ device, oneTimeKey: key.key });
+        else unreachable.push(device);
       }
       if (entries.length > 0) await bridge.e2ee.createSessions(entries);
     }
 
     // 2. Entregar a chave da sessão de grupo a quem ainda não a recebeu.
     const already = this.sharedWith.get(conversationId) ?? new Set<string>();
-    const pending = devices.filter((d) => !already.has(`${d.userId}:${d.deviceId}`));
+    const blocked = new Set(unreachable.map((d) => `${d.userId}:${d.deviceId}`));
+    const pending = devices.filter(
+      (d) => !already.has(`${d.userId}:${d.deviceId}`) && !blocked.has(`${d.userId}:${d.deviceId}`),
+    );
     if (pending.length > 0) {
       const payloads = await bridge.e2ee.shareSession(conversationId, pending);
       if (payloads.length > 0) {
@@ -123,12 +136,20 @@ export class E2eeManager {
           deviceId: this.deviceId,
           messages: payloads,
         });
-        for (const payload of payloads) already.add(`${payload.userId}:${payload.deviceId}`);
+        const delivered = new Set(payloads.map((p) => `${p.userId}:${p.deviceId}`));
+        for (const key of delivered) already.add(key);
         this.sharedWith.set(conversationId, already);
+        // shareSession pode devolver menos do que foi pedido; o que faltou
+        // também não vai conseguir ler.
+        for (const device of pending) {
+          if (!delivered.has(`${device.userId}:${device.deviceId}`)) unreachable.push(device);
+        }
+      } else {
+        unreachable.push(...pending);
       }
     }
 
-    return devices;
+    return { devices, unreachable };
   }
 
   async encrypt(conversationId: string, plaintext: string): Promise<EncryptedEnvelope> {
@@ -139,6 +160,32 @@ export class E2eeManager {
     const result = await bridge.e2ee.decrypt(envelope);
     return 'plaintext' in result ? result.plaintext : null;
   }
+
+  /**
+   * Decifra e, se faltar a chave, busca as chaves pendentes e tenta de novo.
+   *
+   * Existe por causa de uma corrida real: quem envia publica a chave da sessão
+   * e a mensagem em duas requisições, e nada garante que a chave chegue
+   * primeiro. Sem esta segunda tentativa a mensagem ficava permanentemente
+   * ilegível — dizendo, ainda por cima, que era anterior a este computador.
+   */
+  async decryptWithRefresh(envelope: EncryptedEnvelope): Promise<string | null> {
+    const first = await this.decrypt(envelope).catch(() => null);
+    if (first !== null) return first;
+
+    // Uma busca por vez: dez mensagens falhando juntas não viram dez chamadas.
+    this.draining ??= this.drainToDevice()
+      .catch(() => 0)
+      .finally(() => {
+        this.draining = null;
+      });
+    const imported = await this.draining;
+    if (imported === 0) return null;
+
+    return this.decrypt(envelope).catch(() => null);
+  }
+
+  private draining: Promise<number> | null = null;
 
   /**
    * Alguém entrou ou saiu: a sessão de grupo é descartada para que a próxima
