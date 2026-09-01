@@ -22,9 +22,27 @@ Para rodar em desenvolvimento: `pnpm --filter @nexus/desktop dev`.
 
 ## Gerando o instalador
 
+Antes da primeira build, **ligue o Modo de Desenvolvedor do Windows**:
+Configurações → Sistema → Para desenvolvedores → *Modo de desenvolvedor*.
+
+O `electron-builder` baixa um pacote de assinatura de código (que ele também usa para
+gravar o ícone no executável) e esse pacote contém links simbólicos. Sem o Modo de
+Desenvolvedor, o Windows recusa criá-los e a build morre com:
+
+```
+ERROR: Cannot create symbolic link : O cliente não tem o privilégio necessário
+```
+
+Rodar o PowerShell **como Administrador** resolve igual, se você preferir não mexer na
+configuração.
+
 ```powershell
+$env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
 pnpm release:windows
 ```
+
+`CSC_IDENTITY_AUTO_DISCOVERY=false` evita que ele procure um certificado de assinatura —
+o projeto não tem um, e o instalador não é assinado.
 
 Saída: `apps\desktop\release\Nexus-Setup-0.1.0.exe`.
 

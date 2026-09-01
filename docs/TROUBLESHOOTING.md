@@ -150,6 +150,14 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 Alternativa sem mexer na política: use `npm.cmd` e `pnpm.cmd` no lugar de `npm` e `pnpm`.
 
+## "Cannot create symbolic link" ao gerar o instalador
+
+O `electron-builder` extrai um pacote que contém links simbólicos, e o Windows só permite
+criá-los com Modo de Desenvolvedor ligado ou como Administrador.
+
+Configurações → Sistema → Para desenvolvedores → **Modo de desenvolvedor: Ativado**.
+Depois rode a build de novo. Ver `docs/WINDOWS_CLIENT.md`.
+
 ## Windows Firewall / SmartScreen
 
 - SmartScreen avisando na instalação é esperado (o app não é assinado): **Mais informações →
