@@ -289,10 +289,12 @@ export class VoiceConnection {
   async stopScreenShare(): Promise<void> {
     if (!this.room) return;
     for (const publication of this.screenPublications) {
-      if (publication.track) {
-        await this.room.localParticipant.unpublishTrack(publication.track);
-        publication.track.stop();
-      }
+      // A referência precisa ser guardada ANTES: `unpublishTrack` limpa
+      // `publication.track`, e chamar `.stop()` depois quebra em undefined.
+      const track = publication.track;
+      if (!track) continue;
+      await this.room.localParticipant.unpublishTrack(track).catch(() => undefined);
+      track.stop();
     }
     this.screenPublications = [];
     this.localScreenStream = null;
