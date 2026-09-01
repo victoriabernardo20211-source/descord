@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { Avatar } from './Avatar';
 import { Icon } from './Icon';
+import { MembersPanel } from './MembersPanel';
+import { ParticipantMenu } from './ParticipantMenu';
 import { voice, type VoicePeer } from '../lib/voice';
 import { useApp } from '../store/app';
 
@@ -21,6 +23,14 @@ export function CallView({ channelId }: { channelId: string }): JSX.Element {
 
   const channel = detail?.channels.find((c) => c.id === channelId);
   const highlighted = watching ? peers.find((p) => p.userId === watching) : null;
+  const [menu, setMenu] = useState<{ peer: VoicePeer; x: number; y: number } | null>(null);
+  const [membersOpen, setMembersOpen] = useState(true);
+
+  // O menu aponta para uma pessoa; se ela sai da chamada, ele não pode ficar
+  // aberto operando sobre alguém que não está mais lá.
+  const openMenu = (peer: VoicePeer, event: { clientX: number; clientY: number }): void =>
+    setMenu({ peer, x: event.clientX, y: event.clientY });
+  const live = menu && peers.find((p) => p.userId === menu.peer.userId);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-ink-925">
@@ -33,9 +43,25 @@ export function CallView({ channelId }: { channelId: string }): JSX.Element {
         <span className="text-[12.5px] text-mist-400">
           {peers.length} {peers.length === 1 ? 'pessoa' : 'pessoas'}
         </span>
+
+        <div className="flex-1" />
+
+        {detail && (
+          <button
+            onClick={() => setMembersOpen((open) => !open)}
+            title="Lista de membros"
+            aria-label="Lista de membros"
+            className={`flex h-[30px] w-[30px] items-center justify-center rounded-md transition-colors hover:bg-ink-850 ${
+              membersOpen ? 'bg-ink-850 text-mist-50' : 'text-mist-400'
+            }`}
+          >
+            <Icon name="users" size={17} />
+          </button>
+        )}
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 bg-ink-975 p-3.5">
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 bg-ink-975 p-3.5">
         {highlighted ? (
           <>
             <button
@@ -45,7 +71,12 @@ export function CallView({ channelId }: { channelId: string }): JSX.Element {
               <Icon name="chev-l" size={13} />
               Voltar para a grade
             </button>
-            <Tile peer={highlighted} isSelf={highlighted.userId === me?.id} large />
+            <Tile
+              peer={highlighted}
+              isSelf={highlighted.userId === me?.id}
+              large
+              onMenu={(event) => openMenu(highlighted, event)}
+            />
           </>
         ) : (
           <div
@@ -59,16 +90,35 @@ export function CallView({ channelId }: { channelId: string }): JSX.Element {
               <button
                 key={peer.userId}
                 onClick={() => peer.streaming && watchStream(peer.userId)}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  openMenu(peer, event);
+                }}
                 className={`min-h-0 text-left ${peer.streaming ? 'cursor-zoom-in' : 'cursor-default'}`}
               >
-                <Tile peer={peer} isSelf={peer.userId === me?.id} />
+                <Tile
+                  peer={peer}
+                  isSelf={peer.userId === me?.id}
+                  onMenu={(event) => openMenu(peer, event)}
+                />
               </button>
             ))}
           </div>
         )}
 
-        <CallControls />
+          <CallControls />
+        </div>
+
+        {detail && membersOpen && <MembersPanel />}
       </div>
+
+      {menu && live && (
+        <ParticipantMenu
+          peer={live}
+          position={{ x: menu.x, y: menu.y }}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   );
 }
@@ -77,10 +127,12 @@ function Tile({
   peer,
   isSelf,
   large,
+  onMenu,
 }: {
   peer: VoicePeer;
   isSelf: boolean;
   large?: boolean;
+  onMenu: (event: { clientX: number; clientY: number }) => void;
 }): JSX.Element {
   const [stream, setStream] = useState<MediaStream | null>(null);
 
@@ -103,7 +155,7 @@ function Tile({
 
   return (
     <div
-      className={`relative flex h-full items-center justify-center overflow-hidden rounded-xl border-[1.5px] bg-ink-900 transition-colors ${
+      className={`group/tile relative flex h-full items-center justify-center overflow-hidden rounded-xl border-[1.5px] bg-ink-900 transition-colors ${
         peer.speaking ? 'border-signal-500' : 'border-ink-800'
       }`}
     >
@@ -145,6 +197,20 @@ function Tile({
           )
         )}
       </span>
+
+      {/* Botão explícito além do clique direito: nem todo mundo tenta o direito,
+          e num quadradinho sem nada escrito ninguém adivinha que há menu. */}
+      <button
+        onClick={(event) => {
+          event.stopPropagation();
+          onMenu(event);
+        }}
+        title={`Opções de ${peer.displayName}`}
+        aria-label={`Opções de ${peer.displayName}`}
+        className="absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-md bg-ink-975/70 text-mist-200 opacity-0 transition-opacity hover:text-mist-50 focus:opacity-100 group-hover/tile:opacity-100"
+      >
+        <Icon name="more" size={16} />
+      </button>
 
       {peer.streaming && (
         <span className="absolute right-3 top-3 flex items-center gap-1.5 rounded-md border border-live-500/50 bg-live-500/15 px-1.5 py-[3px] text-[10px] font-extrabold tracking-[0.08em] text-live-300">

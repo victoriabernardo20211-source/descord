@@ -46,7 +46,7 @@ useApp.setState({
     iconUrl: null,
     ownerId: 'u1',
     permissions: '0',
-    permissionNames: [],
+    permissionNames: ['ADMINISTRATOR'],
     categories: [{ id: 'cat1', name: 'Texto', position: 0 }, { id: 'cat2', name: 'Voz', position: 1 }],
     channels: [
       { id: 'c1', name: 'geral', type: 'TEXT', topic: 'o que der na telha', categoryId: 'cat1', position: 0 },

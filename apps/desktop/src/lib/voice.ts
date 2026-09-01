@@ -1,4 +1,5 @@
 import { bridge } from './bridge';
+import { silenciarSons, tocar } from './sounds';
 import {
   ConnectionState,
   LocalParticipant,
@@ -184,6 +185,8 @@ export class VoiceConnection {
    */
   async setDeafened(deafened: boolean): Promise<void> {
     this.selfDeafened = deafened;
+    // Ensurdecer é parar de ouvir a chamada inteira — os avisos incluídos.
+    silenciarSons(deafened);
     if (deafened) await this.setMuted(true);
 
     for (const participant of this.room?.remoteParticipants.values() ?? []) {
@@ -346,11 +349,20 @@ export class VoiceConnection {
 
   private bind(room: Room): void {
     room
-      .on(RoomEvent.ParticipantConnected, () => this.refreshPeers())
+      .on(RoomEvent.ParticipantConnected, () => {
+        tocar('entrar');
+        this.refreshPeers();
+      })
       .on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
+        tocar('sair');
         this.remoteStreams.delete(participant.identity);
         this.dropAudio(participant.identity);
         this.refreshPeers();
+      })
+      .on(RoomEvent.TrackPublished, (publication: RemoteTrackPublication) => {
+        // Só a tela: o microfone publicado a cada entrada tocaria junto com o
+        // som de chegada, e viraria barulho em vez de aviso.
+        if (publication.source === Track.Source.ScreenShare) tocar('transmissao');
       })
       .on(RoomEvent.AudioPlaybackStatusChanged, () => {
         // O navegador pode bloquear a reprodução até haver um gesto. Entrar na
@@ -421,10 +433,14 @@ export class VoiceConnection {
     this.audioElements.delete(identity);
   }
 
+  /** Assinatura do último estado emitido, para não repintar sem motivo. */
+  private lastSignature = '';
+
   private refreshPeers(): void {
     const room = this.room;
     if (!room) {
       this.peers = [];
+      this.lastSignature = '';
       this.emit();
       return;
     }
@@ -444,10 +460,31 @@ export class VoiceConnection {
       };
     };
 
-    this.peers = [
+    const peers = [
       describe(room.localParticipant as LocalParticipant, true),
       ...[...room.remoteParticipants.values()].map((p) => describe(p, false)),
     ];
+
+    // Os eventos de voz chegam muitas vezes por segundo — quem fala dispara
+    // ActiveSpeakersChanged sem parar. Emitir a cada um redesenhava a árvore
+    // inteira à toa; só o que mudou de verdade merece repintura.
+    const signature = [
+      // O estado fora da lista entra na assinatura também: um aviso de
+      // microfone novo precisa chegar à tela mesmo com a lista igual.
+      this.channelId,
+      +this.selfMuted,
+      +this.selfDeafened,
+      +this.streaming,
+      this.micWarning ?? '',
+      this.error ?? '',
+      ...peers.map(
+        (p) => `${p.userId}:${+p.speaking}${+p.micMuted}${+p.micAbsent}${+p.streaming}:${p.volume}`,
+      ),
+    ].join('|');
+    if (signature === this.lastSignature) return;
+
+    this.lastSignature = signature;
+    this.peers = peers;
     this.emit();
   }
 }
