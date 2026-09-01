@@ -18,7 +18,17 @@ export interface DeviceState {
   deviceId: string;
   account: string;
   /** identityKey (curve25519) do interlocutor → sessão Olm serializada. */
-  olmSessions: Record<string, string>;
+  /**
+   * Sessões Olm por chave de identidade do contato — uma LISTA, não uma só.
+   *
+   * Quando duas pessoas se escrevem ao mesmo tempo, cada uma cria a sua sessão
+   * de saída. Guardando uma só, a de saída sobrescrevia a que serviria para
+   * receber, e a mensagem de abertura do outro passava a ser decifrada com a
+   * sessão errada — cada lado lia apenas as próprias mensagens.
+   *
+   * O formato antigo (uma string por contato) ainda é lido: ver `migrate`.
+   */
+  olmSessions: Record<string, string[]>;
   /** conversationId → sessão Megolm de saída. */
   outboundSessions: Record<string, { pickle: string; createdAt: number; messageCount: number }>;
   /** `${senderKey}|${sessionId}` → sessão Megolm de entrada. */
@@ -76,7 +86,7 @@ export class CryptoStore {
     try {
       const raw = await fs.readFile(this.statePath, 'utf8');
       const parsed = JSON.parse(raw) as DeviceState;
-      this.state = { ...EMPTY, ...parsed };
+      this.state = migrate({ ...EMPTY, ...parsed });
       return this.state;
     } catch {
       return null;
@@ -121,4 +131,16 @@ export class CryptoStore {
     this.pickleKey = null;
     await fs.rm(this.dir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Estado gravado por uma versão anterior, quando cada contato tinha uma única
+ * sessão Olm. A sessão antiga continua válida — vira o primeiro item da lista.
+ */
+function migrate(state: DeviceState): DeviceState {
+  const olmSessions: Record<string, string[]> = {};
+  for (const [identityKey, value] of Object.entries(state.olmSessions ?? {})) {
+    olmSessions[identityKey] = typeof value === 'string' ? [value] : value;
+  }
+  return { ...state, olmSessions };
 }

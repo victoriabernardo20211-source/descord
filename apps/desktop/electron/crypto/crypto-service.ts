@@ -8,6 +8,8 @@ const Olm = require('@matrix-org/olm');
 const MEGOLM_ALGORITHM = 'm.megolm.v1.aes-sha2';
 const MEGOLM_ROTATION_MS = 8 * 60 * 60 * 1000;
 const MEGOLM_MAX_MESSAGES = 200;
+/** Quantas sessões Olm por contato guardar antes de descartar as mais antigas. */
+const MAX_OLM_SESSIONS = 8;
 
 export interface DeviceIdentity {
   userId: string;
@@ -54,7 +56,7 @@ export class CryptoService {
 
   /** Objetos Olm vivos em memória; o disco guarda só a forma serializada. */
   private account: any = null;
-  private olmSessions = new Map<string, any>();
+  private olmSessions = new Map<string, any[]>();
   private outbound = new Map<string, any>();
   private inbound = new Map<string, any>();
 
@@ -112,7 +114,7 @@ export class CryptoService {
   /** Quais dos dispositivos alvo ainda não têm uma sessão Olm estabelecida. */
   missingSessions(devices: DeviceIdentity[]): DeviceIdentity[] {
     this.assertReady();
-    return devices.filter((d) => !this.state?.olmSessions[d.identityKey]);
+    return devices.filter((d) => (this.state?.olmSessions[d.identityKey]?.length ?? 0) === 0);
   }
 
   /** Cria a sessão Olm de saída a partir de uma prekey obtida do servidor. */
@@ -120,8 +122,9 @@ export class CryptoService {
     this.assertReady();
     const session = new Olm.Session();
     session.create_outbound(this.account, device.identityKey, oneTimeKey);
-    this.olmSessions.set(device.identityKey, session);
-    this.state!.olmSessions[device.identityKey] = session.pickle(this.pickleKey);
+    // Acrescenta, nunca substitui: a sessão que já existia pode ser a única
+    // capaz de ler o que o outro lado enviou.
+    this.rememberOlmSession(device.identityKey, session);
     this.schedulePersist();
   }
 
@@ -143,10 +146,12 @@ export class CryptoService {
 
     const payloads: ToDevicePayload[] = [];
     for (const device of devices) {
-      const olmSession = this.loadOlmSession(device.identityKey);
+      // Para enviar, a mais recente: é a que o outro lado com certeza conhece.
+      const sessions = this.loadOlmSessions(device.identityKey);
+      const olmSession = sessions[sessions.length - 1];
       if (!olmSession) continue;
       const encrypted = olmSession.encrypt(message);
-      this.state!.olmSessions[device.identityKey] = olmSession.pickle(this.pickleKey);
+      this.rememberOlmSession(device.identityKey, olmSession);
       payloads.push({
         userId: device.userId,
         deviceId: device.deviceId,
@@ -177,25 +182,13 @@ export class CryptoService {
           senderKey: string;
         };
 
-        let session = this.loadOlmSession(envelope.senderKey);
-        let plaintext: string;
-
-        if (!session && envelope.type === 0) {
-          // Mensagem de pre-key: abre uma sessão Olm nova do lado receptor.
-          session = new Olm.Session();
-          session.create_inbound_from(this.account, envelope.senderKey, envelope.body);
-          // A prekey consumida é removida da conta para nunca ser reaproveitada.
-          this.account.remove_one_time_keys(session);
-          plaintext = session.decrypt(envelope.type, envelope.body);
-          this.olmSessions.set(envelope.senderKey, session);
-        } else if (session) {
-          plaintext = session.decrypt(envelope.type, envelope.body);
-        } else {
+        const decrypted = this.decryptOlm(envelope);
+        if (!decrypted) {
           failed += 1;
           continue;
         }
-
-        this.state!.olmSessions[envelope.senderKey] = session.pickle(this.pickleKey);
+        const { plaintext, session } = decrypted;
+        this.rememberOlmSession(envelope.senderKey, session);
 
         const content = JSON.parse(plaintext) as {
           type: string;
@@ -351,15 +344,68 @@ export class CryptoService {
     return session;
   }
 
-  private loadOlmSession(identityKey: string): any | null {
+  /**
+   * Decifra um envelope Olm tentando, nesta ordem: uma sessão existente que
+   * reconheça a mensagem, e só então uma sessão nova.
+   *
+   * A ordem importa. Uma mensagem de abertura (`type === 0`) chega quando o
+   * outro lado inicia a conversa — e isso pode acontecer com uma sessão nossa
+   * já criada para ele. Tentar decifrar com a sessão errada não devolve lixo:
+   * lança, e a chave se perde. Por isso perguntamos antes se a sessão combina.
+   */
+  private decryptOlm(envelope: { type: number; body: string; senderKey: string }):
+    | { plaintext: string; session: any }
+    | null {
+    for (const session of this.loadOlmSessions(envelope.senderKey)) {
+      const matches =
+        envelope.type === 0
+          ? session.matches_inbound_from(envelope.senderKey, envelope.body)
+          : true;
+      if (!matches) continue;
+      try {
+        return { plaintext: session.decrypt(envelope.type, envelope.body), session };
+      } catch {
+        // Sessão parecida mas não é esta: segue para a próxima.
+        continue;
+      }
+    }
+
+    if (envelope.type !== 0) return null;
+
+    try {
+      const session = new Olm.Session();
+      session.create_inbound_from(this.account, envelope.senderKey, envelope.body);
+      // A prekey consumida é removida da conta para nunca ser reaproveitada.
+      this.account.remove_one_time_keys(session);
+      return { plaintext: session.decrypt(envelope.type, envelope.body), session };
+    } catch {
+      return null;
+    }
+  }
+
+  /** Guarda a sessão em memória e no disco, sem descartar as anteriores. */
+  private rememberOlmSession(identityKey: string, session: any): void {
+    const live = this.olmSessions.get(identityKey) ?? [];
+    if (!live.includes(session)) live.push(session);
+    // Um teto evita que um contato acumule sessões para sempre; as mais antigas
+    // já não são usadas para enviar e raramente voltam a ser necessárias. A
+    // poda vale para a memória também, não só para o disco.
+    const kept = live.slice(-MAX_OLM_SESSIONS);
+    this.olmSessions.set(identityKey, kept);
+    this.state!.olmSessions[identityKey] = kept.map((s) => s.pickle(this.pickleKey));
+  }
+
+  private loadOlmSessions(identityKey: string): any[] {
     const live = this.olmSessions.get(identityKey);
     if (live) return live;
-    const pickle = this.state?.olmSessions[identityKey];
-    if (!pickle) return null;
-    const session = new Olm.Session();
-    session.unpickle(this.pickleKey, pickle);
-    this.olmSessions.set(identityKey, session);
-    return session;
+    const pickles = this.state?.olmSessions[identityKey] ?? [];
+    const sessions = pickles.map((pickle) => {
+      const session = new Olm.Session();
+      session.unpickle(this.pickleKey, pickle);
+      return session;
+    });
+    this.olmSessions.set(identityKey, sessions);
+    return sessions;
   }
 
   private loadInboundSession(key: string): any | null {
