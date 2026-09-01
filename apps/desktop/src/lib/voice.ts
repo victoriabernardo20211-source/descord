@@ -9,9 +9,7 @@ import {
   RoomEvent,
   Track,
   VideoPresets,
-  createLocalScreenTracks,
   type LocalTrackPublication,
-  type ScreenShareCaptureOptions,
   type VideoCodec,
 } from 'livekit-client';
 
@@ -181,7 +179,18 @@ export class VoiceConnection {
   }
   private pttTimer = 0;
 
-  /** Publica a tela escolhida. Sem permissão STREAM, o SFU recusa a track. */
+  /**
+   * Publica a tela escolhida no nosso seletor.
+   *
+   * Usamos `getUserMedia` com as constraints legadas do Chromium
+   * (`chromeMediaSource: 'desktop'`), e NÃO `getDisplayMedia`: este último abre
+   * o seletor do próprio sistema, ignorando a fonte que a pessoa já escolheu.
+   * Os dois formatos de constraint também não podem ser misturados — fazê-lo
+   * gera "Malformed constraint" e nada é capturado.
+   *
+   * Sem permissão STREAM o SFU recusa a publicação, mesmo com a captura local
+   * tendo funcionado.
+   */
   async startScreenShare(
     sourceId: string,
     quality: StreamQuality,
@@ -196,10 +205,11 @@ export class VoiceConnection {
           ? VideoPresets.h1080
           : VideoPresets.h720;
 
-    // No Electron a fonte vem do desktopCapturer, não do seletor do navegador.
-    const options = {
-      audio: withAudio,
-      resolution: { ...preset.resolution, frameRate: quality.fps },
+    const constraints = {
+      // O áudio da tela não leva sourceId: no Windows ele captura o som do
+      // sistema, e funciona de forma mais confiável com o monitor inteiro do
+      // que com uma janela específica.
+      audio: withAudio ? { mandatory: { chromeMediaSource: 'desktop' } } : false,
       video: {
         mandatory: {
           chromeMediaSource: 'desktop',
@@ -209,30 +219,41 @@ export class VoiceConnection {
           maxFrameRate: quality.fps,
         },
       },
-    } as unknown as ScreenShareCaptureOptions;
+    } as unknown as MediaStreamConstraints;
 
     try {
-      const tracks = await createLocalScreenTracks(options);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const videoTrack = stream.getVideoTracks()[0];
+      if (!videoTrack) throw new Error('A fonte escolhida não forneceu vídeo.');
+
+      this.localScreenStream = new MediaStream([videoTrack]);
       this.screenPublications = [];
-      for (const track of tracks) {
-        // Prévia local: sem isto, quem transmite não vê o que está enviando.
-        if (track.kind === Track.Kind.Video) {
-          this.localScreenStream = new MediaStream([track.mediaStreamTrack]);
-        }
-        const publication = await this.room.localParticipant.publishTrack(track, {
-          simulcast: true,
-          videoEncoding: {
-            maxFramerate: quality.fps,
-            maxBitrate: bitrateFor(quality),
-          },
+
+      const publication = await this.room.localParticipant.publishTrack(videoTrack, {
+        source: Track.Source.ScreenShare,
+        simulcast: true,
+        videoEncoding: { maxFramerate: quality.fps, maxBitrate: bitrateFor(quality) },
+      });
+      if (publication) this.screenPublications.push(publication);
+
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        const audioPublication = await this.room.localParticipant.publishTrack(audioTrack, {
+          source: Track.Source.ScreenShareAudio,
         });
-        if (publication) this.screenPublications.push(publication);
+        if (audioPublication) this.screenPublications.push(audioPublication);
       }
+
+      // Quem para pelo próprio sistema operacional também precisa parar aqui.
+      videoTrack.addEventListener('ended', () => void this.stopScreenShare());
+
       this.streaming = true;
+      this.error = null;
     } catch (err) {
+      this.localScreenStream = null;
+      this.streaming = false;
       this.error =
         err instanceof Error ? err.message : 'Não foi possível iniciar a transmissão.';
-      this.streaming = false;
     }
     this.refreshPeers();
   }

@@ -168,6 +168,13 @@ Windows: Configurações → Privacidade → Microfone → permitir para aplicat
 trabalho. Depois reinicie o Nexus. Em Configurações → Voz e Vídeo o app lista os dispositivos
 e permite testar a captura.
 
+### "Malformed constraint" ao compartilhar tela
+
+Corrigido. A captura usa `getUserMedia` com as constraints legadas do Chromium, porque o
+`getDisplayMedia` abriria o seletor do sistema em vez de usar a fonte escolhida no app —
+e os dois formatos de constraint não podem ser misturados. Se voltar a aparecer, é sinal
+de que alguém reintroduziu `getDisplayMedia` em `apps/desktop/src/lib/voice.ts`.
+
 ### Stream aparece preto
 
 Costuma ser aceleração de hardware brigando com a captura de janela. Tente compartilhar o
