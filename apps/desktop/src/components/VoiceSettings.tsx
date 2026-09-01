@@ -195,6 +195,12 @@ export function VoiceSettings({ onClose }: { onClose: () => void }): JSX.Element
                 : `Atalho: ${settings.pushToTalkKey ?? 'nenhum'}`}
             </button>
           )}
+          {settings.inputMode === 'PUSH_TO_TALK' && !settings.pushToTalkKey && (
+            <p className="mt-2 text-xs text-warn-500">
+              Sem uma tecla definida, o modo aperte-para-falar deixaria seu microfone
+              fechado o tempo todo. Enquanto não escolher uma, ele segue aberto.
+            </p>
+          )}
           <p className="mt-2 text-[11px] text-mist-400">
             O atalho funciona com o Nexus minimizado.
           </p>

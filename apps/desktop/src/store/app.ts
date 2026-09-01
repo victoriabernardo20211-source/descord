@@ -550,6 +550,7 @@ export const useApp = create<AppState>((set, get) => ({
           echoCancellation: boolean;
           autoGainControl: boolean;
           inputMode: string;
+          pushToTalkKey: string | null;
         } | null;
       }>('/users/me');
       const s = settings.settings;
@@ -562,7 +563,9 @@ export const useApp = create<AppState>((set, get) => ({
         noiseSuppression: s?.noiseSuppression ?? true,
         echoCancellation: s?.echoCancellation ?? true,
         autoGainControl: s?.autoGainControl ?? true,
-        pushToTalk: s?.inputMode === 'PUSH_TO_TALK',
+        // Push-to-talk sem tecla definida fecharia o microfone para sempre, sem
+        // nenhuma forma de abrir — o clássico "ninguém me ouve e não sei por quê".
+        pushToTalk: s?.inputMode === 'PUSH_TO_TALK' && Boolean(s?.pushToTalkKey),
       });
 
       if (voice.error) {
@@ -757,6 +760,15 @@ async function afterLogin(
     .get<{ configured: boolean }>('/voice/status')
     .catch(() => ({ configured: false }));
   set({ voiceAvailable: voiceStatus.configured });
+
+  // O atalho de push-to-talk precisa valer desde o login, não só depois de
+  // alguém abrir as configurações.
+  const settings = await api
+    .get<{ settings: { inputMode?: string; pushToTalkKey?: string | null } | null }>('/users/me')
+    .catch(() => null);
+  if (settings?.settings?.inputMode === 'PUSH_TO_TALK' && settings.settings.pushToTalkKey) {
+    await bridge.setPushToTalk(settings.settings.pushToTalkKey).catch(() => undefined);
+  }
 
   if (api.token) realtime.connect(api.baseUrl, api.token);
   registerRealtimeHandlers();
