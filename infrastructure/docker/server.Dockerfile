@@ -2,6 +2,10 @@
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
 
+# Build não tem terminal interativo. Sem isto, o pnpm se recusa a limpar o
+# node_modules ao trocar para o modo produção e aborta com ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY.
+ENV CI=true
+
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ openssl \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
