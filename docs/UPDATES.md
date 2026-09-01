@@ -72,9 +72,14 @@ cd apps\desktop
 pnpm release:windows
 ```
 
-Suba a versão em `apps/desktop/package.json` antes de gerar — o
-electron-updater compara números de versão, não datas nem hashes. Sem subir o
-número, ninguém recebe nada.
+**Suba a versão em `apps/desktop/package.json` antes de gerar.** O
+electron-updater compara números de versão, não datas nem hashes: um segundo
+`0.1.0`, mesmo com o código todo diferente, é ignorado por quem já tem `0.1.0`
+instalado — sem erro nenhum, ele simplesmente conclui que não há novidade.
+
+Esse é o passo mais fácil de esquecer e o mais difícil de perceber, porque
+tudo o resto dá certo: o instalador é gerado, a publicação funciona, o feed
+responde, e ninguém atualiza.
 
 Depois publique:
 
